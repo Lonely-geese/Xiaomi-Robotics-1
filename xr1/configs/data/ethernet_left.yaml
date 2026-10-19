@@ -1,0 +1,44 @@
+# @package _global_
+data:
+  type: BaseDataModule
+  params:
+    type: json
+    max_steps: ${trainer.max_steps}
+    global_batch_size: 256
+    train_datasets:
+      batch_size: 32
+      num_workers: 4
+      action_length: 30
+      repeat_to_max_steps: false
+      active_action_dims: [0, 1, 2, 3, 4, 5, 6]
+      augment: true
+      sample_stride: 1
+      paths: ["${oc.env:ETHERNET_XR1_DIR}/train/episodes"]
+      normalization: ${oc.env:ETHERNET_XR1_DIR}/normalize.json
+    val_datasets:
+      batch_size: ${data.params.train_datasets.batch_size}
+      num_workers: 2
+      action_length: 30
+      repeat_to_max_steps: false
+      active_action_dims: [0, 1, 2, 3, 4, 5, 6]
+      augment: false
+      sample_stride: 30
+      paths: ["${oc.env:ETHERNET_XR1_DIR}/validation/episodes"]
+      normalization: ${oc.env:ETHERNET_XR1_DIR}/normalize.json
+    test_datasets:
+      batch_size: ${data.params.train_datasets.batch_size}
+      num_workers: 2
+      action_length: 30
+      repeat_to_max_steps: false
+      active_action_dims: [0, 1, 2, 3, 4, 5, 6]
+      augment: false
+      sample_stride: 30
+      paths: ["${oc.env:ETHERNET_XR1_DIR}/test/episodes"]
+      normalization: ${oc.env:ETHERNET_XR1_DIR}/normalize.json
+logging:
+  type: swanlab
+  mode: online
+  public: false
+checkpoint_mode: epochs
+evaluation:
+  test_after_fit: true

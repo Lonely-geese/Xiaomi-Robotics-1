@@ -1,0 +1,154 @@
+{
+  "individual_results": [
+    {
+      "task_name": "CloseDoubleDoor",
+      "num_success_rollouts": 94,
+      "num_rollouts": 100,
+      "success_rate": 0.94
+    },
+    {
+      "task_name": "CloseDrawer",
+      "num_success_rollouts": 96,
+      "num_rollouts": 100,
+      "success_rate": 0.96
+    },
+    {
+      "task_name": "CloseSingleDoor",
+      "num_success_rollouts": 100,
+      "num_rollouts": 100,
+      "success_rate": 1.0
+    },
+    {
+      "task_name": "CoffeePressButton",
+      "num_success_rollouts": 82,
+      "num_rollouts": 100,
+      "success_rate": 0.82
+    },
+    {
+      "task_name": "CoffeeServeMug",
+      "num_success_rollouts": 77,
+      "num_rollouts": 100,
+      "success_rate": 0.77
+    },
+    {
+      "task_name": "CoffeeSetupMug",
+      "num_success_rollouts": 42,
+      "num_rollouts": 100,
+      "success_rate": 0.42
+    },
+    {
+      "task_name": "OpenDoubleDoor",
+      "num_success_rollouts": 99,
+      "num_rollouts": 100,
+      "success_rate": 0.99
+    },
+    {
+      "task_name": "OpenDrawer",
+      "num_success_rollouts": 77,
+      "num_rollouts": 100,
+      "success_rate": 0.77
+    },
+    {
+      "task_name": "OpenSingleDoor",
+      "num_success_rollouts": 87,
+      "num_rollouts": 100,
+      "success_rate": 0.87
+    },
+    {
+      "task_name": "PnPCabToCounter",
+      "num_success_rollouts": 64,
+      "num_rollouts": 100,
+      "success_rate": 0.64
+    },
+    {
+      "task_name": "PnPCounterToCab",
+      "num_success_rollouts": 56,
+      "num_rollouts": 100,
+      "success_rate": 0.56
+    },
+    {
+      "task_name": "PnPCounterToMicrowave",
+      "num_success_rollouts": 30,
+      "num_rollouts": 100,
+      "success_rate": 0.3
+    },
+    {
+      "task_name": "PnPCounterToSink",
+      "num_success_rollouts": 59,
+      "num_rollouts": 100,
+      "success_rate": 0.59
+    },
+    {
+      "task_name": "PnPCounterToStove",
+      "num_success_rollouts": 73,
+      "num_rollouts": 100,
+      "success_rate": 0.73
+    },
+    {
+      "task_name": "PnPMicrowaveToCounter",
+      "num_success_rollouts": 37,
+      "num_rollouts": 100,
+      "success_rate": 0.37
+    },
+    {
+      "task_name": "PnPSinkToCounter",
+      "num_success_rollouts": 71,
+      "num_rollouts": 100,
+      "success_rate": 0.71
+    },
+    {
+      "task_name": "PnPStoveToCounter",
+      "num_success_rollouts": 62,
+      "num_rollouts": 100,
+      "success_rate": 0.62
+    },
+    {
+      "task_name": "TurnOffMicrowave",
+      "num_success_rollouts": 99,
+      "num_rollouts": 100,
+      "success_rate": 0.99
+    },
+    {
+      "task_name": "TurnOffSinkFaucet",
+      "num_success_rollouts": 97,
+      "num_rollouts": 100,
+      "success_rate": 0.97
+    },
+    {
+      "task_name": "TurnOffStove",
+      "num_success_rollouts": 29,
+      "num_rollouts": 100,
+      "success_rate": 0.29
+    },
+    {
+      "task_name": "TurnOnMicrowave",
+      "num_success_rollouts": 91,
+      "num_rollouts": 100,
+      "success_rate": 0.91
+    },
+    {
+      "task_name": "TurnOnSinkFaucet",
+      "num_success_rollouts": 91,
+      "num_rollouts": 100,
+      "success_rate": 0.91
+    },
+    {
+      "task_name": "TurnOnStove",
+      "num_success_rollouts": 82,
+      "num_rollouts": 100,
+      "success_rate": 0.82
+    },
+    {
+      "task_name": "TurnSinkSpout",
+      "num_success_rollouts": 86,
+      "num_rollouts": 100,
+      "success_rate": 0.86
+    }
+  ],
+  "summary": {
+    "total_tasks": 24,
+    "total_success_rollouts": 1781,
+    "total_rollouts": 2400,
+    "overall_success_rate": 0.7420833333333333
+  }
+}

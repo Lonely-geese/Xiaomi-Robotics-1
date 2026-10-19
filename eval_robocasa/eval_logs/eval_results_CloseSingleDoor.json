@@ -1,0 +1,7 @@
+{
+    "CloseSingleDoor": {
+        "num_success_rollouts": 100,
+        "num_rollouts": 100,
+        "success_rate": 1.0
+    }
+}

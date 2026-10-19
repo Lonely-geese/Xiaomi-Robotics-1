@@ -1,0 +1,7 @@
+{
+    "CoffeeSetupMug": {
+        "num_success_rollouts": 42,
+        "num_rollouts": 100,
+        "success_rate": 0.42
+    }
+}

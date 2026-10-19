@@ -1,0 +1,7 @@
+{
+    "CloseDrawer": {
+        "num_success_rollouts": 96,
+        "num_rollouts": 100,
+        "success_rate": 0.96
+    }
+}

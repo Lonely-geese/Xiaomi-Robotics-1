@@ -1,0 +1,7 @@
+{
+    "OpenSingleDoor": {
+        "num_success_rollouts": 87,
+        "num_rollouts": 100,
+        "success_rate": 0.87
+    }
+}

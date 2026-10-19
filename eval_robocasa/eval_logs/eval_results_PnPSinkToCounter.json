@@ -1,0 +1,7 @@
+{
+    "PnPSinkToCounter": {
+        "num_success_rollouts": 71,
+        "num_rollouts": 100,
+        "success_rate": 0.71
+    }
+}

@@ -1,0 +1,7 @@
+{
+    "PnPCounterToSink": {
+        "num_success_rollouts": 59,
+        "num_rollouts": 100,
+        "success_rate": 0.59
+    }
+}

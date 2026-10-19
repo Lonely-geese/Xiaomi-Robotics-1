@@ -1,0 +1,7 @@
+{
+    "PnPCabToCounter": {
+        "num_success_rollouts": 64,
+        "num_rollouts": 100,
+        "success_rate": 0.64
+    }
+}

@@ -1,0 +1,7 @@
+{
+    "TurnOffSinkFaucet": {
+        "num_success_rollouts": 97,
+        "num_rollouts": 100,
+        "success_rate": 0.97
+    }
+}

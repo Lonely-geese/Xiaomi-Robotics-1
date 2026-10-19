@@ -1,0 +1,7 @@
+{
+    "TurnOnStove": {
+        "num_success_rollouts": 82,
+        "num_rollouts": 100,
+        "success_rate": 0.82
+    }
+}

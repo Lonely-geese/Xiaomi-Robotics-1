@@ -1,0 +1,14 @@
+# @package _global_
+data:
+  type: BaseDataModule
+  params:
+    type: json
+    max_steps: ${trainer.max_steps}
+    train_datasets:
+      batch_size: 1
+      num_workers: 4
+      action_length: 30
+      repeat_to_max_steps: false
+      paths:
+        - ${oc.env:ETHERNET_XR1_DIR}/episodes
+      normalization: ${oc.env:ETHERNET_XR1_DIR}/normalize.json

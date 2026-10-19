@@ -1,0 +1,16 @@
+# @package _global_
+
+# Generated trajectories and statistics are created by scripts/train_network.sh.
+# The environment variables are absolute paths exported by that launcher.
+data:
+  type: BaseDataModule
+  params:
+    type: json
+    max_steps: ${trainer.max_steps}
+    train_datasets:
+      batch_size: 32
+      action_length: 30
+      repeat_to_max_steps: false
+      paths:
+        - ${oc.env:NETWORK_XR1_EPISODES}
+      normalization: ${oc.env:NETWORK_XR1_NORMALIZATION}

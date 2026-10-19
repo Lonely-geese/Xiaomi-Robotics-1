@@ -1,0 +1,7 @@
+{
+    "PnPCounterToStove": {
+        "num_success_rollouts": 73,
+        "num_rollouts": 100,
+        "success_rate": 0.73
+    }
+}

@@ -2,8 +2,10 @@
 """Infer per-frame values and label positive advantages/corrections."""
 import argparse
 from collections import Counter
+import hashlib
 import json
 import os
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -34,6 +36,7 @@ def main(args):
     device = torch.device('cuda', int(os.environ.get('LOCAL_RANK', '0')))
     torch.cuda.set_device(device)
     checkpoint = torch.load(args.checkpoint, map_location='cpu', weights_only=False)
+    digest = hashlib.sha256(args.checkpoint.read_bytes()).hexdigest()
     metadata = json.loads((args.data/'prepared.json').read_text())
     if checkpoint['metadata']['source_metadata_sha256'] != metadata['source_metadata_sha256']:
         raise ValueError('Value checkpoint was trained on different data')
@@ -41,6 +44,16 @@ def main(args):
     model.load_state_dict(checkpoint['model'], strict=True)
     records = read_jsonl(args.data/'episodes.jsonl')
     for position, record in enumerate(records[rank::world]):
+        destination = args.data/'advantages'/f"{record['name']}.npz"
+        if destination.exists():
+            try:
+                with np.load(destination, allow_pickle=False) as cached:
+                    if (str(cached['value_checkpoint_digest']) == digest
+                            and len(cached['values']) == record['length']
+                            and len(cached['advantage']) == record['length']):
+                        continue
+            except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile):
+                pass
         with np.load(record['numeric'], allow_pickle=False) as archive:
             state, rewards, human = archive['state'], archive['rewards'], archive['human']
         images = np.load(record['images'], mmap_mode='r')
@@ -52,8 +65,10 @@ def main(args):
                 proprio = torch.from_numpy(state[a:b]).to(device)
                 values[a:b] = model.value(image, proprio).float().cpu().numpy()
         advantage = nstep_advantages(rewards, values, metadata['return_scale'], metadata['horizon']) if record['labeled'] else np.full(len(images), np.nan, np.float32)
-        np.savez(args.data/'advantages'/f"{record['name']}.npz", values=values,
-            advantage=advantage, human=human)
+        temporary = destination.with_suffix('.inference.partial.npz')
+        np.savez(temporary, values=values, advantage=advantage, human=human,
+            value_checkpoint_digest=digest)
+        temporary.replace(destination)
         if position % 100 == 0:
             print(json.dumps(dict(stage='value_inference', rank=rank, episodes=position+1,
                 total_local=len(records[rank::world]))), flush=True)

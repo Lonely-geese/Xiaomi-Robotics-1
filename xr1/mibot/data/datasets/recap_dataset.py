@@ -65,6 +65,19 @@ class RecapJsonDataset(JsonDataset):
         return result
 
 
+class ResumablePoolLoader(DataLoader):
+    """Lightning stateful loader; checkpoint consumed batches, never prefetch."""
+    consumed_batches = 0
+
+    def state_dict(self):
+        return dict(epoch=self.sampler.epoch, consumed_batches=self.consumed_batches)
+
+    def load_state_dict(self, state):
+        self.sampler.set_epoch(state['epoch'])
+        self.consumed_batches = int(state['consumed_batches'])
+        self.sampler.start_batch = self.consumed_batches
+
+
 @DATASETS.register_module()
 class RecapDataModule(BaseDataModule):
     def setup(self, stage=None):
@@ -86,6 +99,6 @@ class RecapDataModule(BaseDataModule):
         sampler = BalancedPoolSampler(self.sft_size, self.rollout_size,
             self.batch_size, world, rank, seed=int(self.params.get('seed', 42)))
         workers = int(cfg.get('num_workers', 4))
-        return DataLoader(self.train_set, batch_size=self.batch_size, sampler=sampler,
+        return ResumablePoolLoader(self.train_set, batch_size=self.batch_size, sampler=sampler,
             num_workers=workers, collate_fn=self.collate_fn, persistent_workers=workers > 0,
             prefetch_factor=2 if workers else None, pin_memory=True, drop_last=True)

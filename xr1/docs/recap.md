@@ -83,8 +83,23 @@ bash xr1/scripts/train_recap_8gpu.sh train
 ```
 
 controller 会先验证正式标签下的 8 卡、每卡 32 的两步 smoke，通过后再开始 10 epoch。
-任一阶段失败都会写入状态文件并停止，不把部分完成标成训练成功。
-已有训练输出不会被覆盖；同一准备目录不能启动多个写入进程。
+无人值守启动改用 `python -u xr1/tools/watch_recap_pipeline.py`。
+watchdog 重启异常退出的 controller；controller 会接管仍存活的训练子进程，避免重复启动。
+任一阶段失败都会保存完整错误日志并退避重试，连续失败后的重试间隔最长 10 分钟。
+30 分钟无输出会触发本任务进程树的重启，不终止其他任务。
+
+critic 每 500 步原子保存模型、optimizer、随机状态及采样位置；
+策略每 1000 步增加恢复 checkpoint，只采用全部 8 卡保存结束并带完整标记的目录。
+策略恢复会同时恢复 optimizer、scheduler、epoch、global step 及 DataLoader 采样位置。
+保留 epoch checkpoint；如果尚无可恢复点，失败的尝试会改名保留后重新启动。
+优势计算缓存带 critic checkpoint 指纹，恢复时跳过已完成轨迹并重新生成不完整的派生文件。
+
+显存不足会开启 DiT gradient checkpointing，DataLoader 错误会逐步降低 worker 数，
+通信错误会重试并关闭单机不必要的 IB 通道。这些调整不减少 batch、不改变双池比例、
+epoch 数和学习率，也不删原始数据。未知错误同样保留现场并继续退避重试，
+不会把部分完成或反复报错标成训练成功。
+可查看 `.queue/recap_20261020/watchdog_status.json`、`recovery_settings.json`
+和 `error_*.txt` 排查恢复记录。
 
 训练输出：`xr1/outputs/project_xiaomi-robotics-1/recap_10ep_bs256_20261020/`。
 `run_record.json` 记录初始化、数据规模、标签和 batch；`training_progress.json`

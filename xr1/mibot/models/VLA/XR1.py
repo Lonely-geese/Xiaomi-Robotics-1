@@ -168,6 +168,7 @@ class DiT(nn.Module):
     def __init__(self, layer_num=36, hidden_size=1024):
         super().__init__()
         self.layer_num = layer_num
+        self.gradient_checkpointing = False
         self.layers = nn.ModuleList([DecoderLayer(hidden_size) for _ in range(layer_num)])
         self.apply(self._init_weights)
 
@@ -185,7 +186,11 @@ class DiT(nn.Module):
         if start < 0:
             raise ValueError("VLM cache has fewer layers than DiT")
         for index, layer in enumerate(self.layers):
-            hidden_states = layer(
+            forward = layer
+            if self.gradient_checkpointing and self.training and torch.is_grad_enabled():
+                def forward(*args, module=layer):
+                    return torch.utils.checkpoint.checkpoint(module, *args, use_reentrant=False)
+            hidden_states = forward(
                 hidden_states,
                 past_key_values[start + index],
                 position_embeds,
@@ -208,6 +213,7 @@ class xr1(nn.Module):
         recap_enabled=False,
         recap_unconditional_prob=0.1,
         recap_guidance_scale=1.5,
+        dit_gradient_checkpointing=False,
     ):
         super().__init__()
         self.state_shape = (1, 60)
@@ -221,6 +227,7 @@ class xr1(nn.Module):
         self.recap_enabled = bool(recap_enabled)
         self.recap_unconditional_prob = float(recap_unconditional_prob)
         self.recap_guidance_scale = float(recap_guidance_scale)
+        self.dit_gradient_checkpointing = bool(dit_gradient_checkpointing)
         self.training_repeat = 4
         self.num_steps = 5
         self.prefix_mask_prob = 0.5
@@ -263,6 +270,7 @@ class xr1(nn.Module):
             Projector(vlm_hidden_size, self.n_choices),
         )
         self.dit = DiT()
+        self.dit.gradient_checkpointing = self.dit_gradient_checkpointing
         self.state_projector = Projector(self.state_shape[-1], 1024, num_layers=2)
         self.action_projector = Projector(self.action_shape[-1], 1024, num_layers=2)
         self.action_output_layer = Projector(1024, self.action_shape[-1], inter_dim=1024, num_layers=2)

@@ -18,13 +18,27 @@ from mibot.utils.cfg_utils import strategy_helper
 from train import TrainingProgress
 
 
+class RestartableCheckpoint(ModelCheckpoint):
+    def _save_checkpoint(self, trainer, filepath):
+        super()._save_checkpoint(trainer, filepath)
+        trainer.strategy.barrier('checkpoint_files_written')
+        if trainer.is_global_zero:
+            Path(filepath, 'restart_ready.json').write_text(json.dumps(dict(
+                global_step=trainer.global_step, epoch=trainer.current_epoch,
+                world_size=trainer.world_size), indent=2))
+        trainer.strategy.barrier('checkpoint_ready')
+
+
 class RecapRunRecord(Callback):
+    def __init__(self, resume=None):
+        self.resume = resume
+
     def on_train_start(self, trainer, pl_module):
         data = trainer.datamodule
         actual = trainer.world_size*data.batch_size*trainer.accumulate_grad_batches
         if actual != 256 or data.batch_size != 32 or trainer.world_size != 8:
             raise ValueError(f'Required 8 GPUs x 32 = 256; actual global batch {actual}')
-        if trainer.global_step != 0 or not pl_module.model.recap_enabled:
+        if (trainer.global_step != 0 and not self.resume) or not pl_module.model.recap_enabled:
             raise ValueError('Expected a fresh RECAP optimizer and enabled condition')
         if any(not p.requires_grad for p in pl_module.parameters()):
             raise ValueError('RECAP policy run requires full parameter fine-tuning')
@@ -34,7 +48,8 @@ class RecapRunRecord(Callback):
             if data.sft_size != manifest['sft_frames'] or data.rollout_size != manifest['rollout_frames']:
                 raise ValueError('Pool frame counts disagree with preparation manifest')
             record = dict(initial_model=pl_module._pretrained,
-                optimizer='fresh, no previous optimizer/scheduler state',
+                optimizer='restored with scheduler from checkpoint' if self.resume else 'fresh, no previous optimizer/scheduler state',
+                resumed_from=self.resume, starting_step=trainer.global_step,
                 world_size=trainer.world_size, batch_per_gpu=32, global_batch=256,
                 local_pool_counts=dict(sft=16, rollout=16),
                 sft_frames=data.sft_size, rollout_frames=data.rollout_size,
@@ -45,7 +60,15 @@ class RecapRunRecord(Callback):
                 independent_policy_evaluation=False,
                 trainable_parameters=sum(p.numel() for p in pl_module.parameters()),
                 advantages=json.loads((root/'advantages_ready.json').read_text()))
-            Path(trainer.default_root_dir, 'run_record.json').write_text(json.dumps(record, indent=2))
+            target = Path(trainer.default_root_dir, 'run_record.json')
+            if self.resume:
+                with Path(trainer.default_root_dir, 'resume_history.jsonl').open('a') as handle:
+                    handle.write(json.dumps(record)+'\n')
+            else:
+                target.write_text(json.dumps(record, indent=2))
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        trainer.train_dataloader.consumed_batches = batch_idx+1
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
         if batch['action'].shape[0] != 32 or int((batch['recap_pool'] == 0).sum()) != 16:
@@ -63,8 +86,9 @@ class RecapRunRecord(Callback):
 @hydra.main(config_path='../configs', config_name='recap', version_base=None)
 def main(config: DictConfig):
     cfg = Config(OmegaConf.to_container(config, resolve=True))
-    if cfg.trainer.ckpt_path is not None:
-        raise ValueError('Initialize from model weights, with a fresh optimizer')
+    resume = cfg.trainer.ckpt_path
+    if resume and not Path(resume, 'restart_ready.json').exists():
+        raise ValueError('Recovery requires a completely saved RECAP checkpoint')
     root = Path(cfg.trainer.default_root_dir)/f'project_{cfg.trainer.project}'/cfg.trainer.exp_name
     cfg.trainer.default_root_dir = str(root)
     if int(os.environ.get('RANK', 0)) == 0:
@@ -80,14 +104,18 @@ def main(config: DictConfig):
     cfg.trainer.pop('ckpt_path')
     data = DATASETS.build(cfg.data)
     model = MIMODEL.build(cfg.model)
-    callbacks = [TrainingProgress(), RecapRunRecord()]
+    callbacks = [TrainingProgress(), RecapRunRecord(resume)]
     if cfg.trainer.get('enable_checkpointing', True):
-        callbacks.append(ModelCheckpoint(dirpath=str(root), every_n_epochs=1,
+        callbacks.append(RestartableCheckpoint(dirpath=str(root), every_n_epochs=1,
             every_n_train_steps=0, save_top_k=-1, save_last='link',
             save_on_train_epoch_end=True, filename='epoch{epoch:02d}-step{step}',
             auto_insert_metric_name=False, enable_version_counter=False))
+        callbacks.append(RestartableCheckpoint(dirpath=str(root/'recovery'),
+            every_n_train_steps=1000, every_n_epochs=0, save_top_k=2,
+            monitor='step', mode='max', save_last=False, save_on_train_epoch_end=False,
+            filename='step{step}', auto_insert_metric_name=False, enable_version_counter=False))
     trainer = Trainer(**cfg.trainer, callbacks=callbacks, logger=CSVLogger(str(root), name='csv'))
-    trainer.fit(model=model, datamodule=data, ckpt_path=None)
+    trainer.fit(model=model, datamodule=data, ckpt_path=resume)
     if trainer.is_global_zero:
         (root/'completed.json').write_text(json.dumps(dict(global_step=trainer.global_step,
             epochs=trainer.current_epoch, independent_policy_evaluation=False), indent=2))

@@ -29,9 +29,16 @@ if [[ "$MODE" == smoke ]]; then
 fi
 if [[ "$MODE" != config ]]; then
     RUN_DIR="$PWD/outputs/project_xiaomi-robotics-1/$EXP_NAME"
-    [[ ! -e "$RUN_DIR/config.yaml" && ! -e "$RUN_DIR/completed.json" ]] || {
-        echo "Refusing to overwrite $RUN_DIR" >&2; exit 3;
-    }
+    if [[ -n "${RECAP_RESUME:-}" ]]; then
+        [[ "$MODE" == train && -f "$RECAP_RESUME/restart_ready.json" && ! -f "$RUN_DIR/completed.json" ]] || {
+            echo 'Recovery requires an unfinished run and a complete distributed checkpoint.' >&2; exit 3;
+        }
+        EXTRA+=("trainer.ckpt_path=$RECAP_RESUME")
+    else
+        [[ ! -e "$RUN_DIR/config.yaml" && ! -e "$RUN_DIR/completed.json" ]] || {
+            echo "Refusing to overwrite $RUN_DIR" >&2; exit 3;
+        }
+    fi
     GPU_STATS=$(nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits)
     GPU_COUNT=0
     while read -r used util; do

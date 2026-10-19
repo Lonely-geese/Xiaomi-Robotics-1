@@ -81,6 +81,7 @@ class BalancedPoolSampler(Sampler):
         self.sft_size, self.rollout_size = int(sft_size), int(rollout_size)
         self.batch_size, self.num_replicas, self.rank = batch_size, num_replicas, rank
         self.seed, self.epoch = seed, 0
+        self.start_batch = 0
         self.half_global = batch_size // 2 * num_replicas
         self.steps = max(sft_size, rollout_size) // self.half_global
         if self.steps == 0:
@@ -90,6 +91,8 @@ class BalancedPoolSampler(Sampler):
         return self.steps * self.batch_size
 
     def set_epoch(self, epoch):
+        if int(epoch) != self.epoch:
+            self.start_batch = 0
         self.epoch = int(epoch)
 
     def __iter__(self):
@@ -103,4 +106,4 @@ class BalancedPoolSampler(Sampler):
         rollout = stream(self.rollout_size).reshape(self.steps, self.num_replicas, -1)[:, self.rank]
         # Interleave the two pools: local microbatch boundaries remain exact.
         indices = np.stack([sft, rollout + self.sft_size], axis=-1).reshape(-1)
-        return iter(indices.tolist())
+        return iter(indices[self.start_batch*self.batch_size:].tolist())

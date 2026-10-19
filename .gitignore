@@ -180,9 +180,10 @@ log/
 outputs/
 .setup/
 .queue/
-models/
+/models/
 xr1/pretrained_ckpt/
 xr1/data/ethernet_*/
+xr1/data/recap_*/
 xr1/data/Data_0904_clean_network_xr1/
 swanlog/
 generated_predictions.jsonl

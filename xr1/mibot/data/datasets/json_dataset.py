@@ -73,7 +73,7 @@ class JsonDataset(Dataset):
         sample = self.samples[index]
         traj = self._read_json(sample["file"])
         frame = sample["frame_index"]
-        steps = min(self.action_length, int(traj["num_frames"]) - frame)
+        steps = self._action_steps(traj, frame)
         if steps <= 0:
             raise IndexError(f"invalid sample at index={index}: frame_index={frame}")
 
@@ -108,6 +108,9 @@ class JsonDataset(Dataset):
             "vlm_action_mask": torch.from_numpy(action_mask[:steps]),
             "vlm_action_actual_length": steps,
         }
+
+    def _action_steps(self, traj, frame):
+        return min(self.action_length, int(traj["num_frames"]) - frame)
 
     @staticmethod
     @lru_cache(maxsize=32)

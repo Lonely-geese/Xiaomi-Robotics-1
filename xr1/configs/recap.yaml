@@ -1,0 +1,74 @@
+data:
+  type: RecapDataModule
+  params:
+    max_steps: ${trainer.max_steps}
+    global_batch_size: 256
+    seed: 42
+    train_datasets:
+      batch_size: 32
+      num_workers: 4
+      action_length: 30
+      repeat_to_max_steps: false
+      active_action_dims: [0, 1, 2, 3, 4, 5, 6]
+      augment: true
+      sample_stride: 1
+      sft_paths: ["${oc.env:RECAP_DATA_DIR}/sft/episodes"]
+      rollout_paths: ["${oc.env:RECAP_DATA_DIR}/rollout/episodes"]
+      normalization: ${oc.env:RECAP_DATA_DIR}/normalize.json
+model:
+  type: BaseRunner
+  params:
+    pretrained: ${oc.env:PRETRAINED_CKPT}
+    model:
+      type: xr1
+      freq_coefficient: 1.0
+      freq_excluded_dims: [17, 18, 19]
+      ffn_gradient_checkpointing: true
+      async_train: true
+      full_finetune: true
+      active_action_dims: [0, 1, 2, 3, 4, 5, 6]
+      recap_enabled: true
+      recap_unconditional_prob: 0.1
+      recap_guidance_scale: 1.5
+trainer:
+  accelerator: gpu
+  devices: 8
+  num_nodes: 1
+  precision: bf16-mixed
+  strategy:
+    type: deepspeed
+    params:
+      stage: 2
+      allgather_bucket_size: 500000000
+      reduce_bucket_size: 500000000
+  optimizer:
+    type: torch.optim.AdamW
+    params:
+      lr: 1.0
+      betas: [0.9, 0.95]
+      weight_decay: 0.1
+      eps: 1.0e-8
+      fused: true
+  scheduler:
+    type: mibot.utils.cosine_warmup.get_cosine_schedule_with_warmup
+    params:
+      num_training_steps: ${trainer.max_steps}
+      num_warmup_steps: ${oc.decode:${oc.env:RECAP_WARMUP}}
+      warmup_lr_start: 5.0e-8
+      max_lr: 2.0e-6
+      min_lr: 5.0e-7
+  seed: 42
+  max_steps: ${oc.decode:${oc.env:RECAP_STEPS}}
+  max_epochs: 10
+  accumulate_grad_batches: 1
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
+  project: xiaomi-robotics-1
+  exp_name: recap_10ep_bs256_20261020
+  default_root_dir: ${oc.env:XR1_REPO_DIR}/xr1/outputs
+  use_distributed_sampler: false
+  log_every_n_steps: 1
+  num_sanity_val_steps: 0
+  limit_val_batches: 0
+  enable_progress_bar: false
+  ckpt_path: null

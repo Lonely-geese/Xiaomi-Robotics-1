@@ -36,7 +36,10 @@ class BaseRunner(LightningModule):
                 weights_only=False,
             )
             info = self.load_state_dict(ckpt["module"], strict=False)
-            if info.missing_keys or info.unexpected_keys:
+            # A fresh RECAP condition is the only permitted addition to an SFT
+            # checkpoint; every pretrained tensor must still match exactly.
+            allowed = {'model.recap_condition_embedding'} if getattr(self.model, 'recap_enabled', False) else set()
+            if set(info.missing_keys) - allowed or info.unexpected_keys:
                 raise RuntimeError(f"Checkpoint does not match the configured model: {info}")
             logger.info(f"Loaded pretrained model from {self._pretrained}: {info}")
 

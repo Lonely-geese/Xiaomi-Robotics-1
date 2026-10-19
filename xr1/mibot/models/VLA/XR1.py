@@ -22,6 +22,7 @@ from mibot.models.VLM.qwen3vl import (
     Qwen3VLForConditionalGeneration,
 )
 from mibot.utils.model_utils import auto_cast
+from mibot.data.recap import conditional_flags
 
 
 def modulate(x, shift, scale):
@@ -204,6 +205,9 @@ class xr1(nn.Module):
         async_train=True,
         full_finetune=False,
         active_action_dims=None,
+        recap_enabled=False,
+        recap_unconditional_prob=0.1,
+        recap_guidance_scale=1.5,
     ):
         super().__init__()
         self.state_shape = (1, 60)
@@ -214,12 +218,18 @@ class xr1(nn.Module):
         self.async_train = bool(async_train)
         self.full_finetune = bool(full_finetune)
         self.active_action_dims = active_action_dims
+        self.recap_enabled = bool(recap_enabled)
+        self.recap_unconditional_prob = float(recap_unconditional_prob)
+        self.recap_guidance_scale = float(recap_guidance_scale)
         self.training_repeat = 4
         self.num_steps = 5
         self.prefix_mask_prob = 0.5
         self.n_choices = 5
         self.beta = Beta(1.5, 1.0)
         self._build_model()
+        if self.recap_enabled:
+            # Zero initialization preserves the SFT policy on the first step.
+            self.recap_condition_embedding = nn.Parameter(torch.zeros(1, 6, 1024, dtype=torch.bfloat16))
 
     def _build_model(self):
         config = Qwen3VLConfig.from_pretrained(os.environ.get("XR1_VLM_PATH", "Qwen/Qwen3-VL-4B-Instruct"))
@@ -310,8 +320,11 @@ class xr1(nn.Module):
         past_key_values,
         attn_mask,
         prefix_length,
+        recap_condition=None,
     ):
         timestep = self.t_projector(self.t_embedder(timestep[:, 0, 0] * 1000)).view(-1, 6, 1024)
+        if recap_condition is not None:
+            timestep = timestep + recap_condition[:, None, None].to(timestep.dtype) * self.recap_condition_embedding
         noisy_action = self.action_projector(noisy_action * action_mask)
         sink = self.sink.weight[None].repeat(state_embed.shape[0], 1, 1)
         hidden_states = torch.cat([sink, state_embed, noisy_action], dim=1).contiguous()
@@ -329,7 +342,12 @@ class xr1(nn.Module):
             timestep = torch.ones(
                 (sample.shape[0], 1, 1), device=sample.device, dtype=sample.dtype
             ) * step / self.num_steps
-            sample = sample + self.dit_forward(sample, timestep, **kwargs) * dt
+            velocity = self.dit_forward(sample, timestep, **kwargs)
+            if not self.training and self.recap_enabled and self.recap_guidance_scale != 1.0:
+                unconditional = dict(kwargs, recap_condition=torch.zeros_like(kwargs['recap_condition']))
+                base = self.dit_forward(sample, timestep, **unconditional)
+                velocity = base + self.recap_guidance_scale * (velocity - base)
+            sample = sample + velocity * dt
         return sample
 
     @torch.no_grad()
@@ -343,6 +361,15 @@ class xr1(nn.Module):
         batch.pop("action_segments", None)
         action = batch.pop("action")
         action_mask = batch.pop("action_mask")
+        positive = batch.pop('recap_positive', None)
+        batch.pop('recap_pool', None)
+        recap_condition = None
+        if self.recap_enabled:
+            if positive is None:
+                if compute_loss:
+                    raise ValueError('RECAP training requires advantage labels')
+                positive = torch.ones(action.shape[0], device=action.device, dtype=torch.bool)
+            recap_condition = conditional_flags(positive, self.recap_unconditional_prob, self.training)
         if self.active_action_dims is not None:
             dimension_mask = torch.zeros(action.shape[-1], device=action.device, dtype=action_mask.dtype)
             dimension_mask[self.active_action_dims] = 1
@@ -418,6 +445,8 @@ class xr1(nn.Module):
             attn_mask=attn_mask,
             prefix_length=prefix_length,
         )
+        if recap_condition is not None:
+            kwargs['recap_condition'] = self._repeat(recap_condition)
         if compute_loss:
             timestep = ((1 - self.beta.sample((action.shape[0],)).to(action.device)) * 0.999).to(action.dtype)
             timestep = timestep[:, None, None]
@@ -444,13 +473,16 @@ class xr1(nn.Module):
             action_choice, score_choice, choice_target, choice_mask, actual_lengths
         )
         loss = 0.5 * loss_mse + self.freq_coefficient * loss_freq + 0.5 * loss_choice + 0.5 * loss_score
-        return {
+        losses = {
             "loss": loss,
             "loss_mse": loss_mse,
             "loss_freq": loss_freq,
             "loss_l1": loss_choice,
             "loss_score": loss_score,
         }
+        if recap_condition is not None:
+            losses['recap_conditional_fraction'] = recap_condition.float().mean()
+        return losses
 
     def compute_flow_loss(self, pred, target, action_mask, weight):
         pred, target, weight = pred.float(), target.float(), weight.float()

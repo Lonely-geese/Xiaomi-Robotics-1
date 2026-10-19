@@ -9,6 +9,7 @@ import torch
 from mmengine import Config
 
 from mibot.models import MIMODEL
+from mibot.data.datasets.json_dataset import JsonDataset
 from mibot.server.runtime.server import Server
 from mibot.utils.io import build_action_mask, validate_quantiles, validate_stats
 
@@ -33,8 +34,9 @@ def load_model(model_dir, device):
 def load_stats(cfg, device):
     data = cfg.data.params.train_datasets
     action_length = int(data.get("action_length", cfg.data.params.get("action_length", 30)))
-    mean, std = validate_stats(data.mean, data.std, action_length)
-    q01, q99 = validate_quantiles(data.q01, data.q99)
+    stats = JsonDataset._normalization(data)
+    mean, std = validate_stats(stats['mean'], stats['std'], action_length)
+    q01, q99 = validate_quantiles(stats['q01'], stats['q99'])
     return (
         torch.tensor(mean, device=device),
         torch.tensor(std, device=device),
@@ -49,6 +51,8 @@ def parse_args():
     parser.add_argument("--model", type=str, required=True, help="Path to the model dir.")
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=10086)
+    parser.add_argument('--recap-guidance-scale', type=float, default=None,
+        help='Override the RECAP inference guidance strength (0=unconditional, 1=positive policy).')
     return parser.parse_args()
 
 
@@ -56,6 +60,10 @@ if __name__ == "__main__":
     args = parse_args()
     device = "cuda:0"
     cfg, model = load_model(args.model, device)
+    if args.recap_guidance_scale is not None:
+        if not model.recap_enabled or args.recap_guidance_scale < 0:
+            raise ValueError('A nonnegative guidance scale requires a RECAP model')
+        model.recap_guidance_scale = args.recap_guidance_scale
     mean, std, q01, q99, action_mask = load_stats(cfg, device)
 
     try:

@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Supervise the authorized return -> value -> advantage -> XR1 training run.
+
+The process persists independently of the terminal. All stage transitions and
+failures are recorded locally. Completed stages are immutable and reusable.
+"""
+import argparse
+import csv
+import datetime
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+
+
+def timestamp():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+class Pipeline:
+    def __init__(self, args):
+        self.args = args
+        self.repo = Path(__file__).resolve().parents[2]
+        self.xr1 = self.repo/'xr1'
+        self.root = self.repo/'.queue/recap_20261020'
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.data = self.xr1/'data/recap_20261020'
+        self.value = self.xr1/'outputs/recap_value_20261020'
+        self.policy = self.xr1/'outputs/project_xiaomi-robotics-1/recap_10ep_bs256_20261020'
+        self.status = dict(controller_pid=os.getpid(), started_at=timestamp(), stage='starting')
+        # Local IPC avoids NFS .nfs* cleanup races and AF_UNIX path limits.
+        os.environ['TMPDIR'] = tempfile.mkdtemp(prefix='xr1-recap-', dir='/tmp')
+        os.environ['OMP_NUM_THREADS'] = '4'
+        os.environ['NCCL_DEBUG'] = 'WARN'
+
+    def record(self, **changes):
+        self.status.update(changes, updated_at=timestamp())
+        target = self.root/'status.json'
+        temporary = target.with_suffix('.partial.json')
+        temporary.write_text(json.dumps(self.status, indent=2))
+        temporary.replace(target)
+        print(json.dumps(self.status), flush=True)
+
+    def wait_for_gpus(self):
+        while True:
+            result = subprocess.check_output(['nvidia-smi','--query-gpu=memory.used,utilization.gpu',
+                '--format=csv,noheader,nounits'], text=True)
+            rows = [[int(v.strip()) for v in line.split(',')] for line in result.strip().splitlines()]
+            if len(rows) == 8 and all(used <= 1024 and util <= 5 for used, util in rows):
+                return
+            self.record(state='waiting_for_idle_gpus', gpu_observation=rows)
+            time.sleep(30)
+
+    def command(self, stage, command):
+        self.record(stage=stage, state='running', command=command, stage_started_at=timestamp())
+        log = self.root/f'{stage}.log'
+        with log.open('a') as output:
+            output.write('\nSTAGE '+timestamp()+' '+json.dumps(command)+'\n')
+            output.flush()
+            process = subprocess.Popen(command, cwd=self.xr1, stdout=output, stderr=subprocess.STDOUT)
+            self.record(child_pid=process.pid, log=str(log))
+            returncode = process.wait()
+        if returncode:
+            raise RuntimeError(f'{stage} exited {returncode}; see {log}')
+        self.record(last_completed_stage=stage, stage_completed_at=timestamp())
+
+    def run(self):
+        # Attach to the already launched preparation, without a competing writer.
+        if not (self.data/'prepared.json').exists():
+            process_file = self.root/'prepare_process.json'
+            if not process_file.exists():
+                self.command('prepare', ['python','-u','tools/prepare_recap_dataset.py'])
+            else:
+                pid = json.loads(process_file.read_text())['pid']
+                self.record(stage='prepare', state='running', child_pid=pid,
+                    log=str(self.root/'prepare.log'))
+                while not (self.data/'prepared.json').exists():
+                    try:
+                        state = Path(f'/proc/{pid}/stat').read_text().split()[2]
+                    except FileNotFoundError:
+                        state = 'exited'
+                    if state in ('Z','exited'):
+                        raise RuntimeError('Dataset preparation stopped before publishing prepared.json')
+                    self.record(preparation_progress=self.preparation_progress())
+                    time.sleep(30)
+        if not (self.value/'completed.json').exists():
+            self.wait_for_gpus()
+            self.command('value_train', ['torchrun','--standalone','--nproc_per_node=8',
+                'tools/train_recap_value.py','--epochs',str(self.args.value_epochs)])
+        if not (self.data/'advantages_ready.json').exists():
+            self.wait_for_gpus()
+            self.command('advantages', ['torchrun','--standalone','--nproc_per_node=8',
+                'tools/compute_recap_advantages.py'])
+        smoke = self.policy.with_name(self.policy.name+'_smoke')
+        if not (smoke/'completed.json').exists():
+            self.wait_for_gpus()
+            self.command('policy_smoke', ['bash','scripts/train_recap_8gpu.sh','smoke'])
+        self.verify_smoke(smoke)
+        if not (self.policy/'completed.json').exists():
+            self.wait_for_gpus()
+            self.command('policy_train', ['bash','scripts/train_recap_8gpu.sh','train'])
+        completion = json.loads((self.policy/'completed.json').read_text())
+        manifest = json.loads((self.data/'prepared.json').read_text())
+        expected = max(manifest['sft_frames'],manifest['rollout_frames'])//128*10
+        if completion['epochs'] != 10 or completion['global_step'] != expected:
+            raise RuntimeError(f'Unexpected policy completion: {completion}, expected {expected} updates')
+        if not (self.policy/'last.ckpt/checkpoint/mp_rank_00_model_states.pt').exists():
+            raise RuntimeError('Final model checkpoint missing')
+        self.record(stage='complete', state='completed', completion=completion,
+            final_checkpoint=str(self.policy/'last.ckpt/checkpoint/mp_rank_00_model_states.pt'))
+
+    def preparation_progress(self):
+        path = self.root/'prepare.log'
+        with path.open('rb') as handle:
+            handle.seek(max(0, path.stat().st_size-8192))
+            lines = handle.read().decode(errors='replace').splitlines()
+        for line in reversed(lines):
+            if line.startswith('{"processed"'):
+                return json.loads(line)
+        return {'state':'indexing SFT segments / preparing first batch'}
+
+    def verify_smoke(self, smoke):
+        completion = json.loads((smoke/'completed.json').read_text())
+        record = json.loads((smoke/'run_record.json').read_text())
+        condition = json.loads((smoke/'condition_verified.json').read_text())
+        files = sorted((smoke/'csv').glob('version_*/metrics.csv'))
+        rows = list(csv.DictReader(files[-1].open()))
+        losses = [float(r['train/loss_step']) for r in rows if r.get('train/loss_step')]
+        if completion['global_step'] != 2 or record['global_batch'] != 256 or not losses or not all(map(math.isfinite, losses)):
+            raise RuntimeError('Full-size RECAP smoke verification failed')
+        self.record(smoke_verification=dict(passed=True, global_batch=256, local_sft=16,
+            local_rollout=16, losses=losses, condition=condition))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--value-epochs', type=int, default=3)
+    pipeline = Pipeline(parser.parse_args())
+    import fcntl
+    lock = (pipeline.root/'pipeline.lock').open('w')
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise SystemExit('The RECAP pipeline already has a running controller')
+    try:
+        pipeline.run()
+    except Exception as error:
+        pipeline.record(state='failed', error=f'{type(error).__name__}: {error}')
+        raise

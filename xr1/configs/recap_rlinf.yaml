@@ -1,0 +1,11 @@
+defaults:
+  - recap
+  - _self_
+
+model:
+  params:
+    model:
+      recap_conditioning: language
+      recap_guidance_scale: 1.0
+trainer:
+  exp_name: recap_rlinf_1563_10ep_bs256_20261020

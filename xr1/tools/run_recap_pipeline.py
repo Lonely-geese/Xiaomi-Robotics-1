@@ -29,13 +29,19 @@ class Pipeline:
         self.args = args
         self.repo = Path(__file__).resolve().parents[2]
         self.xr1 = self.repo/'xr1'
-        self.root = self.repo/'.queue/recap_20261020'
+        self.native = getattr(args, 'profile', 'legacy') == 'rlinf_1563'
+        run_name = 'recap_rlinf_1563_20261020' if self.native else 'recap_20261020'
+        self.root = self.repo/'.queue'/run_name
         self.root.mkdir(parents=True, exist_ok=True)
         status_path = self.root/'status.json'
         self.previous_status = json.loads(status_path.read_text()) if status_path.exists() else None
-        self.data = self.xr1/'data/recap_20261020'
-        self.value = self.xr1/'outputs/recap_value_20261020'
-        self.policy = self.xr1/'outputs/project_xiaomi-robotics-1/recap_10ep_bs256_20261020'
+        self.data = self.xr1/'data'/run_name
+        self.value = self.xr1/'outputs'/('recap_rlinf_value_1563_20261020' if self.native else 'recap_value_20261020')
+        exp_name = 'recap_rlinf_1563_10ep_bs256_20261020' if self.native else 'recap_10ep_bs256_20261020'
+        self.policy = self.xr1/'outputs/project_xiaomi-robotics-1'/exp_name
+        if self.native:
+            os.environ.update(RECAP_DATA_DIR=str(self.data), EXP_NAME=exp_name, RECAP_CONFIG='recap_rlinf')
+            os.environ['HF_ENDPOINT'] = 'https://huggingface.co'
         self.status = dict(controller_pid=os.getpid(), started_at=timestamp(), stage='starting')
         self.settings_path = self.root/'recovery_settings.json'
         self.settings = json.loads(self.settings_path.read_text()) if self.settings_path.exists() else dict(
@@ -89,7 +95,16 @@ class Pipeline:
                 item.terminate()
             except psutil.NoSuchProcess:
                 pass
-        _, remaining = psutil.wait_procs(owned, timeout=20)
+        def active(item):
+            try:
+                return item.is_running() and item.status() != psutil.STATUS_ZOMBIE
+            except psutil.NoSuchProcess:
+                return False
+        deadline = time.monotonic()+20
+        remaining = [p for p in owned if active(p)]
+        while remaining and time.monotonic()<deadline:
+            time.sleep(.2)
+            remaining = [p for p in remaining if active(p)]
         for item in remaining:
             try:
                 item.kill()
@@ -191,15 +206,16 @@ class Pipeline:
 
     def run(self):
         self.adopt_orphan_stage()
+        prepare_script = 'tools/prepare_recap_rlinf.py' if self.native else 'tools/prepare_recap_dataset.py'
         # Attach to the already launched preparation, without a competing writer.
         if not (self.data/'prepared.json').exists():
             process_file = self.root/'prepare_process.json'
             if not process_file.exists():
-                self.command('prepare', ['python','-u','tools/prepare_recap_dataset.py'])
+                self.command('prepare', ['python','-u',prepare_script])
             else:
                 pid = json.loads(process_file.read_text())['pid']
                 if not process_alive(pid):
-                    self.command('prepare', ['python','-u','tools/prepare_recap_dataset.py'])
+                    self.command('prepare', ['python','-u',prepare_script])
                     pid = json.loads(process_file.read_text())['pid']
                 self.record(stage='prepare', state='running', child_pid=pid,
                     log=str(self.root/'prepare.log'))
@@ -222,15 +238,27 @@ class Pipeline:
                         raise RuntimeError('Preparation stalled; retrying cached episodes')
                     self.record(preparation_progress=progress)
                     time.sleep(30)
+        if self.native and not (self.repo/'models/recap_rlinf_backbones.json').exists():
+            self.command('backbones', ['python','-u','tools/download_recap_backbones.py',
+                '--token-file','/tmp/xr1-recap-hf-token','--use-proxy'])
+        if self.native:
+            value_smoke = self.value.with_name(self.value.name+'_smoke')
+            if not (value_smoke/'completed.json').exists():
+                self.wait_for_gpus()
+                self.command('value_smoke', ['torchrun','--standalone','--nproc_per_node=8',
+                    'tools/train_recap_rlinf_value.py','--steps','2','--output',str(value_smoke),
+                    '--workers',str(self.settings['workers']),'--resume'])
         if not (self.value/'completed.json').exists():
             self.wait_for_gpus()
-            self.command('value_train', ['torchrun','--standalone','--nproc_per_node=8',
-                'tools/train_recap_value.py','--epochs',str(self.args.value_epochs),
+            command = ['tools/train_recap_rlinf_value.py','--steps','8000'] if self.native else [
+                'tools/train_recap_value.py','--epochs',str(self.args.value_epochs)]
+            self.command('value_train', ['torchrun','--standalone','--nproc_per_node=8']+command+[
                 '--resume','--workers',str(self.settings['workers'])])
         if not (self.data/'advantages_ready.json').exists():
             self.wait_for_gpus()
             self.command('advantages', ['torchrun','--standalone','--nproc_per_node=8',
-                'tools/compute_recap_advantages.py'])
+                'tools/compute_recap_advantages.py','--data',str(self.data),
+                '--checkpoint',str(self.value/'best.pt'),'--batch-size','32' if self.native else '256'])
         smoke = self.policy.with_name(self.policy.name+'_smoke')
         if not (smoke/'completed.json').exists():
             self.wait_for_gpus()
@@ -251,7 +279,7 @@ class Pipeline:
 
     def adopt_orphan_stage(self):
         previous, self.previous_status = self.previous_status, None
-        if not previous or previous.get('stage') not in ('value_train','advantages','policy_smoke','policy_train'):
+        if not previous or previous.get('stage') not in ('backbones','value_smoke','value_train','advantages','policy_smoke','policy_train'):
             return
         pid = previous.get('child_pid')
         if not pid:
@@ -263,7 +291,8 @@ class Pipeline:
             return
         import psutil
         parent = psutil.Process(pid)
-        if str(self.xr1) != parent.cwd():
+        expected_cwd = self.repo if previous.get('stage') == 'backbones' else self.xr1
+        if str(expected_cwd) != parent.cwd():
             return
         stage, log = previous['stage'], Path(previous['log'])
         self.last_error_log = str(log)
@@ -305,6 +334,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--value-epochs', type=int, default=3)
     parser.add_argument('--stall-seconds', type=int, default=1800)
+    parser.add_argument('--profile', choices=['legacy','rlinf_1563'], default='legacy')
     pipeline = Pipeline(parser.parse_args())
     import fcntl
     lock = (pipeline.root/'pipeline.lock').open('w')

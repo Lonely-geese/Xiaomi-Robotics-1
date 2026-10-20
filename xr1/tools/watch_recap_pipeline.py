@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Keep the RECAP controller alive; do not launch duplicate workers."""
 import fcntl
+import argparse
 import json
 import os
 from pathlib import Path
@@ -10,8 +11,11 @@ import time
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--profile', choices=['legacy','rlinf_1563'], default='legacy')
+    args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
-    root = repo/'.queue/recap_20261020'
+    root = repo/'.queue'/('recap_rlinf_1563_20261020' if args.profile == 'rlinf_1563' else 'recap_20261020')
     root.mkdir(parents=True, exist_ok=True)
     lock = (root/'watchdog.lock').open('w')
     try:
@@ -21,7 +25,7 @@ def main():
     restarts = 0
     while True:
         with (root/'controller.log').open('a') as log:
-            process = subprocess.Popen([sys.executable, '-u', str(repo/'xr1/tools/run_recap_pipeline.py')],
+            process = subprocess.Popen([sys.executable, '-u', str(repo/'xr1/tools/run_recap_pipeline.py'), '--profile', args.profile],
                 cwd=repo, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             (root/'watchdog_status.json').write_text(json.dumps(dict(watchdog_pid=os.getpid(),
                 controller_pid=process.pid, controller_restarts=restarts, state='running'), indent=2))

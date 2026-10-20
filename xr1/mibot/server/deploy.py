@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import sys
 from os.path import join as osp
+from pathlib import Path
 
 import torch
 from mmengine import Config
@@ -31,8 +34,16 @@ def load_model(model_dir, device):
     return cfg, model.eval().to(device)
 
 
-def load_stats(cfg, device):
-    data = cfg.data.params.train_datasets
+def load_stats(cfg, device, model_dir=None):
+    data = cfg.data.params.train_datasets.copy()
+    if model_dir is not None and Path(model_dir, 'normalize.json').exists():
+        path = Path(model_dir, 'normalize.json')
+        record = Path(model_dir, 'run_record.json')
+        if record.exists():
+            expected = json.loads(record.read_text()).get('normalization_sha256')
+            if expected and hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                raise ValueError('Deployment normalization does not match the training run')
+        data['normalization'] = str(path)
     action_length = int(data.get("action_length", cfg.data.params.get("action_length", 30)))
     stats = JsonDataset._normalization(data)
     mean, std = validate_stats(stats['mean'], stats['std'], action_length)
@@ -64,7 +75,8 @@ if __name__ == "__main__":
         if not model.recap_enabled or args.recap_guidance_scale < 0:
             raise ValueError('A nonnegative guidance scale requires a RECAP model')
         model.recap_guidance_scale = args.recap_guidance_scale
-    mean, std, q01, q99, action_mask = load_stats(cfg, device)
+    mean, std, q01, q99, action_mask = load_stats(cfg, device, args.model)
+    print(f"RECAP enabled={model.recap_enabled}, conditioning={model.recap_conditioning}, guidance_scale={model.recap_guidance_scale}")
 
     try:
         server = Server(args.host, args.port, model, mean, std, q01, q99, action_mask, device)

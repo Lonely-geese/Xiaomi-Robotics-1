@@ -54,7 +54,7 @@ fi
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 RESOURCE_GPU=8 WORLD_SIZE=1
 export XR1_STRICT_BATCH=1 MAX_LENGTH=${MAX_LENGTH:-22000} OMP_NUM_THREADS=4
 export NCCL_DEBUG=${NCCL_DEBUG:-WARN}
-ARGS=(trainer.exp_name="$EXP_NAME" hydra.run.dir=. hydra.output_subdir=null)
+ARGS=(--config-name="${RECAP_CONFIG:-recap}" trainer.exp_name="$EXP_NAME" hydra.run.dir=. hydra.output_subdir=null)
 if [[ "$MODE" == config ]]; then
     python tools/train_recap.py "${ARGS[@]}" "$@" --cfg job --resolve
 else

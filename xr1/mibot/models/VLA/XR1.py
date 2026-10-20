@@ -214,6 +214,7 @@ class xr1(nn.Module):
         recap_unconditional_prob=0.1,
         recap_guidance_scale=1.5,
         dit_gradient_checkpointing=False,
+        recap_conditioning='timestep',
     ):
         super().__init__()
         self.state_shape = (1, 60)
@@ -225,6 +226,9 @@ class xr1(nn.Module):
         self.full_finetune = bool(full_finetune)
         self.active_action_dims = active_action_dims
         self.recap_enabled = bool(recap_enabled)
+        if recap_conditioning not in ('timestep', 'language'):
+            raise ValueError('recap_conditioning must be timestep or language')
+        self.recap_conditioning = recap_conditioning
         self.recap_unconditional_prob = float(recap_unconditional_prob)
         self.recap_guidance_scale = float(recap_guidance_scale)
         self.dit_gradient_checkpointing = bool(dit_gradient_checkpointing)
@@ -234,9 +238,15 @@ class xr1(nn.Module):
         self.n_choices = 5
         self.beta = Beta(1.5, 1.0)
         self._build_model()
-        if self.recap_enabled:
+        if self.recap_enabled and self.recap_conditioning == 'timestep':
             # Zero initialization preserves the SFT policy on the first step.
             self.recap_condition_embedding = nn.Parameter(torch.zeros(1, 6, 1024, dtype=torch.bfloat16))
+        elif self.recap_enabled:
+            from transformers import AutoTokenizer
+            from mibot.data.recap_language import GUIDANCE_TEXT
+            tokenizer = AutoTokenizer.from_pretrained(os.environ['XR1_VLM_PATH'], local_files_only=True)
+            self.register_buffer('recap_guidance_tokens', torch.tensor(
+                tokenizer.encode(GUIDANCE_TEXT, add_special_tokens=False), dtype=torch.long), persistent=False)
 
     def _build_model(self):
         config = Qwen3VLConfig.from_pretrained(os.environ.get("XR1_VLM_PATH", "Qwen/Qwen3-VL-4B-Instruct"))
@@ -344,6 +354,8 @@ class xr1(nn.Module):
 
     @torch.no_grad()
     def _generate(self, noise, kwargs):
+        kwargs = dict(kwargs)
+        unconditional_kwargs = kwargs.pop('unconditional_kwargs', None)
         sample = noise.clone()
         dt = 1.0 / self.num_steps
         for step in range(self.num_steps):
@@ -352,7 +364,8 @@ class xr1(nn.Module):
             ) * step / self.num_steps
             velocity = self.dit_forward(sample, timestep, **kwargs)
             if not self.training and self.recap_enabled and self.recap_guidance_scale != 1.0:
-                unconditional = dict(kwargs, recap_condition=torch.zeros_like(kwargs['recap_condition']))
+                unconditional = unconditional_kwargs if unconditional_kwargs is not None else dict(
+                    kwargs, recap_condition=torch.zeros_like(kwargs['recap_condition']))
                 base = self.dit_forward(sample, timestep, **unconditional)
                 velocity = base + self.recap_guidance_scale * (velocity - base)
             sample = sample + velocity * dt
@@ -372,6 +385,7 @@ class xr1(nn.Module):
         positive = batch.pop('recap_positive', None)
         batch.pop('recap_pool', None)
         recap_condition = None
+        language_guidance = self.recap_enabled and self.recap_conditioning == 'language'
         if self.recap_enabled:
             if positive is None:
                 if compute_loss:
@@ -392,6 +406,13 @@ class xr1(nn.Module):
             prefix_length = batch.pop("prefix_length", 0)
 
         batch.pop("labels", None)
+        unconditional_batch = None
+        unconditional_segments = segments
+        if language_guidance:
+            from mibot.data.recap_language import insert_guidance
+            if not compute_loss and self.recap_guidance_scale != 1.0:
+                unconditional_batch = dict(batch)
+            batch, segments = insert_guidance(batch, recap_condition, self.recap_guidance_tokens, segments)
         if compute_loss:
             actual_lengths = batch.pop("vlm_action_actual_length")
             choice_target = batch.pop("vlm_action_target")
@@ -436,6 +457,11 @@ class xr1(nn.Module):
         attn_mask = torch.cat([cache_mask, causal_mask], dim=-1)[:, None].bool()
 
         state_embed = self.state_projector(state)
+        unconditional_cache = None
+        if unconditional_batch is not None:
+            base_outputs = self.vlm(**unconditional_batch, use_cache=True, skip_logits=True)
+            unconditional_cache = self._unpad(list(base_outputs.past_key_values),
+                base_outputs.position_ids, base_outputs.attention_mask, unconditional_segments)
         dit_position_ids = self._repeat(dit_position_ids, dim=1)
         action = self._repeat(action)
         action_mask = self._repeat(action_mask)
@@ -453,8 +479,18 @@ class xr1(nn.Module):
             attn_mask=attn_mask,
             prefix_length=prefix_length,
         )
-        if recap_condition is not None:
+        if recap_condition is not None and not language_guidance:
             kwargs['recap_condition'] = self._repeat(recap_condition)
+        if unconditional_cache is not None:
+            base_kv, base_positions, base_mask = unconditional_cache
+            base_ids = (torch.arange(query_length,device=action.device).view(1,1,-1).repeat(3,batch_size,1)
+                        + base_positions.max(dim=-1).values[...,None]+1)
+            if action_length > prefix_length:
+                base_ids[:,:,-(action_length-prefix_length):] += 10
+            base_attn = torch.cat([base_mask[:,None,:].expand(-1,query_length,-1),causal_mask],dim=-1)[:,None].bool()
+            kwargs['unconditional_kwargs'] = dict(kwargs,past_key_values=base_kv,
+                position_embeds=self.rotary_emb(action,self._repeat(base_ids,dim=1)),
+                attn_mask=self._repeat(base_attn))
         if compute_loss:
             timestep = ((1 - self.beta.sample((action.shape[0],)).to(action.device)) * 0.999).to(action.dtype)
             timestep = timestep[:, None, None]

@@ -1,5 +1,62 @@
 # XR1 RECAP 网线训练
 
+## RLinf 原版结构：1563 示教实验
+
+启动命令：
+
+```bash
+source xr1/scripts/env.sh
+python -u xr1/tools/watch_recap_pipeline.py --profile rlinf_1563
+```
+
+本实验与下文旧 CNN 实验使用独立目录，旧实验保持停止。
+
+- 示教池：`20261016_20261019_1563`，1563 条已知成功示教；
+  rollout 池：`recap_755`，755 条成功/失败/未知轨迹。原始数据只读。
+- 沿用 `middle_mixed_old2000_5ep_lr2e6_20261013/last.ckpt` 的 XR1 模型权重与
+  normalization，重新建立 optimizer/scheduler。每卡 16 示教 + 16 rollout，
+  8 卡全局 batch 256，policy 训练 10 epoch。epoch 按较大池的一遍计算。
+  本次准备保留 172,935 示教帧（采集断点的 shift3 guard 移除 9 帧）与
+  330,413 rollout 帧，每 epoch 2,581 步，共 25,810 步。
+- critic 直接使用 RLinf `50f22ad9a7825eeaaf4180dca5300f2fa70758be`
+  的 `ValueCriticModel`、`ValueExpert` 和 processor。原文件保存在
+  `mibot/models/rlinf_recap/`，`upstream.json` 逐文件记录 SHA256，构建前验证。
+  结构为预训练 SigLIP2-so400m-patch14-224、预训练 Gemma3-270M、原版
+  `gemma_1m` 专家、可学习 CLS 与 201-bin 分类价值头；没有自定义 CNN 或状态分支。
+- 三路 RGB 按原版 `resize_with_pad` 等比缩放、补黑边至 224×224；
+  使用原 processor 的图像增强、`[-1,1]` 归一化与 `Task: {prompt}.` 文本。
+- critic 使用原版 backbone/head 两组学习率 5e-5/1e-4，warmup 500 步，
+  AdamW betas=(0.9,0.95)、weight decay=1e-10、clip=1，FP32 master + BF16 autocast。
+  训练 8000 updates，每 500 步分别报告示教/rollout 的 episode-disjoint
+  诊断结果，按 rollout validation RMSE 选择 checkpoint。这不是策略独立成功率评测。
+- 回报遵循原版 -1/成功终止 0/失败终止 -300、gamma=1；
+  N-step=10，在全部已知 outcome 的两池帧上统一取优势 top 30%。
+  不强制把全部示教或人工帧改成正标签；未知 outcome 不造价值目标，策略按无条件样本保留。
+  接管时间仍用于 action chunk 截断，防止窗口跨自主/人工切换；采集时间断点也截断。
+- XR1 的 CFG 适配遵循原版 `positive_only_conditional`：正样本以 0.1 概率
+  去掉 `\nAdvantage: positive` 语言条件，负样本始终无条件。
+  不增加 timestep embedding 参数。推理采用同一噪声下的双分支速度 CFG，
+  guidance scale 默认与 RLinf 配置一致为 1.0，可用部署参数覆盖。
+  policy 的 Qwen/XR1 主干、动作表示和原有损失保留；它不是把策略替换成 π0.5。
+- 自动流水线顺序为：准备数据 → 原版 critic 的 8卡×32 两步测试 → critic 8000步 →
+  优势标注 → 正式标签下的 policy 两步测试 → policy 10 epoch。
+  recovery checkpoint 与 watchdog 沿用自动恢复机制，旧 CNN critic/标签不参与本实验。
+
+状态与产物：
+
+```text
+.queue/recap_rlinf_1563_20261020/status.json
+.queue/recap_rlinf_1563_20261020/{prepare,value_smoke,value_train,advantages,policy_smoke,policy_train}.log
+xr1/data/recap_rlinf_1563_20261020/
+xr1/outputs/recap_rlinf_value_1563_20261020/
+xr1/outputs/project_xiaomi-robotics-1/recap_rlinf_1563_10ep_bs256_20261020/
+```
+
+部署使用该实验保存的 `config.py`、权重和同目录 `normalize.json`；
+部署入口校验 norm 指纹，并自动为语言条件模型插入正优势提示。
+
+## 旧 CNN 实验（已停止）
+
 算法参考 [RLinf RECAP](https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/recap.html)，
 对应本机 `../RLinf/examples/offline_rl/advantage_labeling/recap/`。
 完整流程为回报计算、categorical critic 训练、N-step 优势标注、CFG 策略微调。

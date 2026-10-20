@@ -1,0 +1,42 @@
+{
+  "repository": "https://github.com/RLinf/RLinf",
+  "commit": "50f22ad9a7825eeaaf4180dca5300f2fa70758be",
+  "files": {
+    "recap/__init__.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/__init__.py",
+      "sha256": "d32243760da52ce652a981d7a614ffdd09799a39dbeb1e1971a28e5e72aec714"
+    },
+    "recap/checkpoint_utils.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/checkpoint_utils.py",
+      "sha256": "1e089900a55dfe2d726fbea91f0138704aebc7d0528e57a6cea72256f1d7a97b"
+    },
+    "recap/configuration.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/configuration.py",
+      "sha256": "2a2680988d7533ea94de1219026927c9bc66743c3fe4bfd872c1eb694c5d9b79"
+    },
+    "recap/data_collator.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/data_collator.py",
+      "sha256": "44a1b528560487a094156302b8b62a3baf658a86f7199400c5f86847d8b83e7c"
+    },
+    "recap/modeling_critic.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/modeling_critic.py",
+      "sha256": "7a8d38c9d39c6c36795099c16f2439bca1e0de154dca67caf7178b1bf0b589e5"
+    },
+    "recap/processing.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/processing.py",
+      "sha256": "6760d45099bd7c79f7e23ec190c73ea3d8add7c64796b9f7785cc27e30ebf71f"
+    },
+    "recap/value_expert.py": {
+      "source": "rlinf/models/embodiment/value_model/recap/value_expert.py",
+      "sha256": "77f19bbecee3376c289f6789e4b50b11dd2f26141519a22532f78c7429b632a4"
+    },
+    "value_common/__init__.py": {
+      "source": "rlinf/models/embodiment/value_model/value_common/__init__.py",
+      "sha256": "f105cd420e7d873392a9e16b7b9aa9c0911d0a07c3a5956a9eb16a5e90a67c7c"
+    },
+    "value_common/image_text_processing.py": {
+      "source": "rlinf/models/embodiment/value_model/value_common/image_text_processing.py",
+      "sha256": "2deb7f9b7f91432d7fc10b7b026ac7cad2f367784f6f3663ff0ded2d6409e37e"
+    }
+  }
+}

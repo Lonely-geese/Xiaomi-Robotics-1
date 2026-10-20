@@ -2,6 +2,7 @@
 """XR1 advantage-conditioned offline policy fine-tuning."""
 import json
 import os
+import shutil
 from pathlib import Path
 
 import hydra
@@ -66,6 +67,7 @@ class RecapRunRecord(Callback):
                     handle.write(json.dumps(record)+'\n')
             else:
                 target.write_text(json.dumps(record, indent=2))
+            shutil.copyfile(root/'normalize.json', Path(trainer.default_root_dir)/'normalize.json')
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         trainer.train_dataloader.consumed_batches = batch_idx+1
@@ -75,6 +77,12 @@ class RecapRunRecord(Callback):
             raise ValueError('Each local batch must contain exactly 16 demos and 16 rollout samples')
 
     def on_train_end(self, trainer, pl_module):
+        if pl_module.model.recap_conditioning == 'language':
+            if trainer.is_global_zero:
+                Path(trainer.default_root_dir, 'condition_verified.json').write_text(json.dumps(
+                    dict(conditioning='RLinf positive language prompt', global_step=trainer.global_step,
+                         guidance_tokens=pl_module.model.recap_guidance_tokens.tolist()),indent=2))
+            return
         norm = float(pl_module.model.recap_condition_embedding.detach().float().norm())
         if not 0 < norm < float('inf'):
             raise ValueError('The new RECAP condition did not learn finite, nonzero weights')

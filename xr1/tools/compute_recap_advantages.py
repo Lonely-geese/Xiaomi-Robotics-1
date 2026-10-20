@@ -40,7 +40,14 @@ def main(args):
     metadata = json.loads((args.data/'prepared.json').read_text())
     if checkpoint['metadata']['source_metadata_sha256'] != metadata['source_metadata_sha256']:
         raise ValueError('Value checkpoint was trained on different data')
-    model = RecapValueCritic().to(device).eval()
+    native = checkpoint.get('backend') == 'native_rlinf'
+    if native:
+        from mibot.models.recap_rlinf import build_critic, build_processor, observation
+        model = build_critic(checkpoint['config']['siglip_path'], checkpoint['config']['gemma3_path']).float().to(device).eval()
+        processor = build_processor(checkpoint['config']['gemma3_path'])
+        texts = {}
+    else:
+        model = RecapValueCritic().to(device).eval()
     model.load_state_dict(checkpoint['model'], strict=True)
     records = read_jsonl(args.data/'episodes.jsonl')
     for position, record in enumerate(records[rank::world]):
@@ -62,8 +69,17 @@ def main(args):
             for a in range(0, len(images), args.batch_size):
                 b = min(a+args.batch_size, len(images))
                 image = torch.from_numpy(images[a:b].copy()).to(device)
-                proprio = torch.from_numpy(state[a:b]).to(device)
-                values[a:b] = model.value(image, proprio).float().cpu().numpy()
+                if native:
+                    if record['prompt'] not in texts:
+                        texts[record['prompt']] = processor.process_text([record['prompt']])
+                    text = texts[record['prompt']]
+                    tokens = text['input_ids'].to(device).expand(b-a,-1)
+                    mask = text['attention_mask'].to(device).expand(b-a,-1)
+                    prediction = model(observation(image,tokens,mask,processor)).predicted_values
+                else:
+                    proprio = torch.from_numpy(state[a:b]).to(device)
+                    prediction = model.value(image, proprio)
+                values[a:b] = prediction.float().cpu().numpy()
         advantage = nstep_advantages(rewards, values, metadata['return_scale'], metadata['horizon']) if record['labeled'] else np.full(len(images), np.nan, np.float32)
         temporary = destination.with_suffix('.inference.partial.npz')
         np.savez(temporary, values=values, advantage=advantage, human=human,
@@ -79,16 +95,17 @@ def main(args):
         # threshold on labeled autonomous rollout frames, not the larger SFT pool.
         scores = []
         for record in records:
-            if record['pool'] == 'rollout' and record['labeled']:
+            if record['labeled'] and (native or record['pool'] == 'rollout'):
                 with np.load(args.data/'advantages'/f"{record['name']}.npz") as data:
-                    scores.append(data['advantage'][data['human'] != 1])
+                    scores.append(data['advantage'] if native else data['advantage'][data['human'] != 1])
         threshold = float(np.quantile(np.concatenate(scores), 1-metadata['positive_fraction']))
         counts = Counter()
         for record in records:
             path = args.data/'advantages'/f"{record['name']}.npz"
             with np.load(path, allow_pickle=False) as archive:
                 data = {key:archive[key] for key in archive.files}
-            positive = label_episode(record['pool'], data['advantage'], data['human'], threshold, metadata['horizon'])
+            positive = (np.isfinite(data['advantage']) & (data['advantage'] >= threshold)) if native else label_episode(
+                record['pool'], data['advantage'], data['human'], threshold, metadata['horizon'])
             counts[record['pool']+'_positive'] += int(positive.sum())
             counts[record['pool']+'_frames'] += len(positive)
             counts['human_correction_frames'] += int((data['human'] == 1).sum()) if record['pool'] == 'rollout' else 0
@@ -97,9 +114,10 @@ def main(args):
             temporary.replace(path)
         report = dict(ready=True, value_checkpoint=str(args.checkpoint.resolve()),
             value_metrics=checkpoint['metrics'], threshold=threshold,
-            threshold_population='non-correction frames from known-outcome rollouts; unknown intervention coverage retained',
+            threshold_population='all known-outcome SFT and rollout frames, native RLinf global quantile' if native else 'non-correction frames from known-outcome rollouts; unknown intervention coverage retained',
             positive_fraction=metadata['positive_fraction'], gamma=metadata['gamma'], horizon=metadata['horizon'],
-            correction_rule='human action positive; preceding 30-frame autonomous horizon negative',
+            correction_rule='native RLinf labels; no manual outcome/intervention overrides' if native else 'human action positive; preceding 30-frame autonomous horizon negative',
+            backend='native_rlinf' if native else 'cnn',
             **dict(counts))
         (args.data/'advantages_ready.json').write_text(json.dumps(report, indent=2))
         print(json.dumps(report, indent=2), flush=True)

@@ -1,0 +1,35 @@
+{
+  "actor_vlm_path": "/path/to/Qwen3-VL-4B-Instruct",
+  "sft_checkpoint": "/path/to/xr1_sft.pt",
+  "critic_language_path": "google/gemma-3-270m-it",
+  "critic_vision_path": "google/siglip-so400m-patch14-384",
+  "output_dir": "outputs/lwd",
+  "batch_size": 2,
+  "save_every": 1000,
+  "seed": 0,
+  "offline_n_chunks": 1,
+  "offline_outcomes": "/path/to/offline_outcomes.json",
+  "offline_data": {
+    "paths": ["/path/to/offline/episodes"],
+    "normalization": "/path/to/normalize.json",
+    "action_length": 30,
+    "sample_stride": 30,
+    "active_action_dims": [0, 1, 2, 3, 4, 5, 6]
+  },
+  "lwd": {
+    "stage": "offline",
+    "atoms": 201,
+    "v_min": -0.1,
+    "v_max": 1.1,
+    "gamma": 0.9999,
+    "tau_offline": 0.6,
+    "tau_online": 0.9,
+    "entropy_coefficient": 0.3,
+    "temperature": 2.0,
+    "ema_rate": 0.005,
+    "flow_steps": 5,
+    "actor_lr": 0.00002,
+    "critic_lr": 0.0005,
+    "total_steps": 100000
+  }
+}

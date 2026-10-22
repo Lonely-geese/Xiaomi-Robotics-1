@@ -4,6 +4,10 @@ Post-training and deployment code for **Xiaomi-Robotics-1** — fine-tune the re
 
 All commands below run from the `xr1/` directory.
 
+The `LWD` branch also provides DIVL value learning and QAM policy updates for the
+XR-1 actor. See [the LWD guide](docs/lwd.md) for data labels, offline/online
+training, checkpoint export, tests, and differences from the published methods.
+
 ---
 
 ## Installation

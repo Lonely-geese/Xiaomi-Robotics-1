@@ -2,6 +2,7 @@
 import math
 import os
 import random
+from types import MethodType
 
 import torch
 import torch.nn as nn
@@ -22,6 +23,15 @@ from mibot.models.VLM.qwen3vl import (
     Qwen3VLForConditionalGeneration,
 )
 from mibot.utils.model_utils import auto_cast
+
+
+def checkpoint_mlp_forward(module, x):
+    # A bound method is rebound by deepcopy. A closure capturing the original
+    # module would silently make a frozen reference actor call the live actor.
+    forward = type(module).forward.__get__(module)
+    if module.training and torch.is_grad_enabled():
+        return torch.utils.checkpoint.checkpoint(forward, x, use_reentrant=False)
+    return forward(x)
 
 
 def modulate(x, shift, scale):
@@ -233,14 +243,7 @@ class xr1(nn.Module):
         if self.ffn_gradient_checkpointing:
             for layer in self.vlm.model.language_model.layers:
                 mlp = layer.mlp
-                original_forward = mlp.forward
-
-                def checkpointed_forward(x, forward=original_forward, module=mlp):
-                    if module.training and torch.is_grad_enabled():
-                        return torch.utils.checkpoint.checkpoint(forward, x, use_reentrant=False)
-                    return forward(x)
-
-                mlp.forward = checkpointed_forward
+                mlp.forward = MethodType(checkpoint_mlp_forward, mlp)
 
         vlm_hidden_size = self.vlm.config.text_config.hidden_size
         self.state_projector_choice = Projector(self.state_shape[-1], vlm_hidden_size, num_layers=2)
@@ -335,6 +338,39 @@ class xr1(nn.Module):
     @torch.no_grad()
     def generate(self, batch):
         return self.forward(batch, return_loss=False)
+
+    def prepare_flow_condition(self, observation, action_mask):
+        """Build differentiable, observation-only conditioning for RL vector fields.
+
+        Pass an inference prompt, without SFT action/score/state target tokens.
+        Unlike forward(), this neither mutates inputs nor repeats the batch.
+        """
+        inputs = dict(observation)
+        state = inputs.pop("state").to(self.sink.weight.dtype)
+        if any(key in inputs for key in ("action", "labels", "vlm_action_target",
+                                         "action_vlm_condition_segments")):
+            raise ValueError("RL conditioning requires an observation-only inference prompt")
+        ids = inputs["input_ids"]
+        if ((ids >= ACTION_START_ID) & (ids < ACTION_END_ID)).any() or (ids == SCORE_ID).any() or (ids == STATE_ID).any():
+            raise ValueError("RL prompts must not contain SFT target tokens")
+        mask = action_mask.to(self.sink.weight.dtype)
+        if self.active_action_dims is not None:
+            dimensions = torch.zeros(mask.shape[-1], device=mask.device, dtype=mask.dtype)
+            dimensions[self.active_action_dims] = 1
+            if (mask * (1 - dimensions)).any():
+                raise ValueError("RL action_mask enables dimensions outside active_action_dims")
+        outputs = self.vlm(**inputs, use_cache=True, skip_logits=True)
+        cache = list(outputs.past_key_values)
+        batch, horizon, _ = mask.shape
+        query_length = 1 + state.shape[1] + horizon
+        positions = torch.arange(query_length, device=state.device).view(1, 1, -1).repeat(3, batch, 1)
+        positions = positions + outputs.position_ids.max(dim=-1).values[..., None] + 1
+        positions[:, :, -horizon:] += 10
+        cache_mask = outputs.attention_mask[:, None, :].expand(-1, query_length, -1)
+        causal = torch.ones(batch, query_length, query_length, device=state.device, dtype=torch.bool).tril()
+        return dict(action_mask=mask, state_embed=self.state_projector(state),
+                    position_embeds=self.rotary_emb(mask, positions), past_key_values=cache,
+                    attn_mask=torch.cat([cache_mask, causal], -1)[:, None].bool(), prefix_length=0)
 
     @auto_cast
     def forward(self, batch, return_loss=False):

@@ -71,13 +71,24 @@ def build_adjoint_targets(reference_velocity, q_value, mask, steps=5, temperatur
     return AdjointTargets(states, times, sigmas, list(reversed(adjoints)), reference_velocities)
 
 
-def local_loss(velocity, targets, mask):
+def local_loss(velocity, targets, mask, diagnostics=False):
     """Sum action dimensions and time, mean batch, as in the QAM code."""
     loss = 0.
+    policy_loss, adjoint_loss, cross_loss = 0., 0., 0.
     for x, t, sigma, adjoint, base in zip(
         targets.states, targets.times, targets.sigmas,
         targets.adjoints, targets.reference_velocities, strict=True
     ):
-        residual = (2 * (velocity(x, t).float() - base) / sigma + sigma * adjoint) * mask
+        policy = 2 * (velocity(x, t).float() - base) / sigma * mask
+        guidance = sigma * adjoint * mask
+        residual = policy + guidance
         loss = loss + residual.square().flatten(1).sum(-1).mean()
+        if diagnostics:
+            policy_loss += policy.detach().square().flatten(1).sum(-1).mean()
+            adjoint_loss += guidance.detach().square().flatten(1).sum(-1).mean()
+            cross_loss += (2 * policy.detach() * guidance.detach()).flatten(1).sum(-1).mean()
+    if diagnostics:
+        return loss, {"qam_policy_term": policy_loss, "qam_adjoint_term": adjoint_loss,
+                      "qam_cross_term": cross_loss,
+                      "qam_residual_rms": (loss.detach() / (mask.sum() / mask.shape[0] * len(targets.states))).sqrt()}
     return loss

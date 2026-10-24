@@ -223,6 +223,22 @@ def test_checkpointed_mlp_deepcopy_is_independent_and_differentiable():
     assert x.grad is not None and mlp.weight.grad is None
 
 
+def test_pretrained_backbone_restores_gemma_lm_and_siglip_weights(tmp_path):
+    from transformers import Gemma3ForCausalLM, Gemma3TextConfig, SiglipVisionModel, SiglipVisionConfig
+    language = Gemma3ForCausalLM(Gemma3TextConfig(vocab_size=32, hidden_size=32, intermediate_size=64,
+        num_hidden_layers=2, num_attention_heads=4, num_key_value_heads=2, head_dim=8,
+        max_position_embeddings=128, sliding_window=16))
+    vision = SiglipVisionModel(SiglipVisionConfig(hidden_size=16, intermediate_size=32,
+        num_hidden_layers=1, num_attention_heads=2, image_size=8, patch_size=4))
+    language.save_pretrained(tmp_path / "language")
+    vision.save_pretrained(tmp_path / "vision")
+    restored = ValueBackbone.from_pretrained(tmp_path / "language", tmp_path / "vision")
+    for actual, expected in ((restored.language, language.get_decoder()), (restored.vision, vision)):
+        assert actual.state_dict().keys() == expected.state_dict().keys()
+        for key, tensor in expected.state_dict().items():
+            torch.testing.assert_close(actual.state_dict()[key], tensor, rtol=0, atol=0)
+
+
 def test_real_gemma_siglip_modules_receive_shared_value_and_q_gradients():
     from transformers import Gemma3TextModel, Gemma3TextConfig, SiglipVisionModel, SiglipVisionConfig
     language = Gemma3TextModel(Gemma3TextConfig(vocab_size=32, hidden_size=32, intermediate_size=64,

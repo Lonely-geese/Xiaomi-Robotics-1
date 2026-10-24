@@ -5,7 +5,7 @@ Qwen3-VL + DiT，替换论文的 π0.5。原有 SFT 入口仍然可用。
 
 这是依据 [LWD 论文 v4](https://arxiv.org/html/2605.00416v4) 和
 [QAM 作者实现](https://github.com/ColinQiyangLi/qam) 编写的实现，**不是智元官方源码发布**，
-也没有复现论文成功率。单设备 learner、离线训练及在线数据快照混合更新已接通；
+也没有复现论文成功率。单设备及同步多卡 learner、离线训练及在线数据快照混合更新已接通；
 机器人控制、自动发布和分布式车队回放服务不在本实现范围内。
 
 ## 代码路径
@@ -19,7 +19,9 @@ Qwen3-VL + DiT，替换论文的 π0.5。原有 SFT 入口仍然可用。
 | `mibot/rl/learner.py` | 两条优化器路径、EMA、固定 SFT 参考策略、恢复训练 |
 | `mibot/rl/data.py` | 本仓库 JSON 数据、显式结果标签、双编码器预处理 |
 | `mibot/rl/replay.py` | n-chunk return 和 transition 校验 |
-| `tools/train_lwd.py` | 单 GPU 训练入口及 Actor 导出 |
+| `tools/train_lwd.py` | 单 GPU / torchrun 训练入口及 Actor 导出 |
+| `mibot/rl/distributed.py` | 两路优化器的梯度平均、参数同步与各 rank 随机状态 |
+| `mibot/rl/optim.py` | FP32 梯度范数、按参数分片的 FP32 Actor 主权重与 AdamW 状态 |
 
 ## 更新规则
 
@@ -55,6 +57,33 @@ LWD 式 (9) 后的 σ 写为 `sqrt(2*(1-t)*t)`；QAM 作者代码使用稳定化
 串接视觉/文本/机器人状态/读出 token，并将这些部分视为工程选择。
 5 步流求解沿用 XR-1；梯度裁剪 1.0 和 Actor weight decay 0.01 也可配置。
 按论文附录对整个 V/Q 分支做 EMA，并用目标 V 构建 bootstrap。
+
+### Actor 优化器精度
+
+XR-1 默认参数为 BF16。直接对 BF16 参数执行普通 AdamW 时，动量也会是 BF16，
+小于参数表示精度的更新可能被反复舍入。推荐在 `lwd` 配置中显式设置
+`"actor_optimizer": "fp32_master_sharded"`：前后向仍使用 BF16，每个参数的 FP32
+主权重和两份 FP32 动量由一个 rank 持有，所有 rank 平均梯度、计算 FP32 范数并裁剪，
+各 owner 更新后广播 BF16 参数。此实现是优化器状态分片，未分片模型或梯度。
+默认 `adamw` 保留旧实验兼容性，不会静默迁移已有检查点。
+
+从旧 `adamw` 检查点迁移时，在新配置中选择上述优化器，并显式传入
+`--resume /path/to/latest.pt --upgrade-actor-optimizer`。保留 Adam step、动量、学习率
+进度、原始参考模型和随机状态；FP32 主权重由已保存的 Actor 初始化，无法恢复历史
+已被舍入的增量。后续恢复只需要 `--resume`，不要重复使用迁移参数。
+
+若用同一检查点进行学习率对照，在新配置中修改 `actor_lr`，并显式传入
+`--override-actor-lr`。这会同比缩放当前学习率和 cosine 的 base LR，保留调度步数、
+Adam 状态及随机状态，不重置训练进度；仅用于已明确记录的超参数变更。
+新检查点记录修改后的基础学习率，后续恢复不需要重复覆盖。
+
+新检查点的 `latest.pt` 引用 `optimizer_shards/<generation>/rank_*.pt`；复制或归档
+实验时必须保留这些文件，移动目录后需更新检查点中的 `actor_optimizer.directory`。
+每次保存使用新 generation，所有 rank 写完后才发布主检查点，旧 generation 保留。
+精确恢复要求同样的 world size 和参数布局。优化器主权重和状态不会重新降为 BF16。
+
+日志增加 `actor_clip_scale` / `critic_clip_scale`、实际学习率，以及 QAM 的策略差异项、
+伴随项、交叉项和有效元素残差 RMS。分项仅用于诊断，不改变原始求和损失或裁剪阈值。
 
 ## 数据与标签
 
@@ -131,7 +160,7 @@ terminated:             [B]，真实任务终止标志
 
 先按仓库 `scripts/setup_env.sh` 安装 CUDA 训练依赖，准备 XR-1 SFT 权重及 Qwen3-VL、
 Gemma、SigLIP 模型。Gemma 下载可能需要账户许可；离线环境使用本地模型目录。
-当前开发验证的 `.venv` 安装的是 **CPU PyTorch 2.8.0**，仅用于单元测试，不能直接训练完整 XR-1。
+最初开发验证使用 **CPU PyTorch 2.8.0**，仅用于单元测试。完整训练必须使用 CUDA 版环境。
 
 修改 `configs/lwd.json` 中的模型、数据、标签路径和动作维度，再从仓库根目录运行：
 
@@ -160,15 +189,36 @@ PYTHONPATH=xr1 python xr1/tools/train_lwd.py --config /path/to/lwd_online.json -
 阶段切换保留学习后的 Actor、V/Q、EMA 和原始 SFT 参考，重启优化器及 cosine 调度。
 普通 resume 保留优化器、学习率进度和随机状态。在线入口读取启动时的数据快照；
 新增回放需更新数据/标签后普通 resume，当前没有后台自动扫描或机器人发布服务。
-本入口没有 DDP/ZeRO，批量和显存需求需在完整权重环境中验证。
+多卡使用同步数据并行：每张卡各持一份 Actor、固定参考、V/Q 和 EMA；两路梯度均在
+裁剪与优化器更新之前通过 NCCL 做 FP32 分桶平均。模型和梯度保持各卡完整复制；
+选择 `fp32_master_sharded` 时，Actor 的 FP32 主权重和 AdamW 状态按参数分片，
+增加 GPU 数量可降低这部分单卡显存，但不会减少模型和梯度的显存。
+
+```bash
+PYTHONPATH=xr1 torchrun --standalone --nproc-per-node=8 \
+  xr1/tools/train_lwd.py --config /path/to/lwd_offline.json
+```
+
+多卡时 `batch_size` 是每卡批量，例如每卡 2、8 卡对应全局 16；不会自动缩放学习率。
+各卡从同一离线池独立随机抽取回放，并使用独立噪声流。启动时广播同一模型状态，
+更新后各卡 Actor、V/Q 和 EMA 保持一致；分片优化器由各 owner 保存对应参数的状态。
+rank 0 输出平均指标并发布主检查点，各 rank 分别写入自己的优化器分片；
+检查点保存各 rank 的随机状态。精确 resume 要求相同卡数和每卡批量。
+`--stop-after 3` 可在完成三步后保存退出，保持原配置的学习率总步数；随后用
+相同配置和 `--resume .../latest.pt` 继续。
+
+Gemma 通过 `AutoModelForCausalLM` 加载后取 decoder，避免 Transformers 4.57.1
+的裸 `AutoModel` 未识别发布权重的 `model.` 前缀而随机初始化编码器。编码器缺失
+或形状不匹配的预训练参数会报错，不继续训练。
 
 ## 验证
 
 ```bash
 PYTHONPATH=xr1 .venv/bin/python -m pytest -q xr1/tests/test_lwd.py xr1/tests/test_lwd_data.py
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=xr1 .venv/bin/python -m pytest -q xr1/tests/test_lwd_distributed.py
 ```
 
 测试覆盖概率质量守恒、自适应分位数、terminal TD、动作掩码、解析线性流的伴随、
 梯度方向、固定参考、阶段切换、EMA、精确恢复，以及缩小后的真实 Gemma/SigLIP 模块梯度。
 XR-1 条件接口和检查点包装函数单独执行其真实源码做 CPU 验证；这不代替完整模型 CUDA 集成测试。
-尚未进行完整预训练权重训练或真机评测。
+这些单元测试不代替完整预训练权重的 CUDA 集成训练。尚未进行真机评测。

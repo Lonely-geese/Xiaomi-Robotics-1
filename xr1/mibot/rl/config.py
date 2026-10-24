@@ -20,10 +20,13 @@ class LWDConfig:
     actor_lr: float = 2e-5
     critic_lr: float = 5e-4
     actor_weight_decay: float = 0.01
+    actor_optimizer: str = "adamw"
     grad_clip: float = 1.0
     total_steps: int = 100000
 
     def __post_init__(self):
+        if self.actor_optimizer not in ("adamw", "fp32_master_sharded"):
+            raise ValueError("invalid actor optimizer")
         if self.stage not in ("offline", "online"):
             raise ValueError("stage must be offline or online")
         if self.atoms < 2 or self.v_min >= self.v_max:

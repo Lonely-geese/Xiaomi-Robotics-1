@@ -17,9 +17,20 @@ class ValueBackbone(nn.Module):
     @classmethod
     def from_pretrained(cls, language_path="google/gemma-3-270m-it",
                         vision_path="google/siglip-so400m-patch14-384", **kwargs):
-        from transformers import AutoModel, SiglipVisionModel
-        return cls(AutoModel.from_pretrained(language_path, **kwargs),
-                   SiglipVisionModel.from_pretrained(vision_path, **kwargs))
+        from transformers import AutoModelForCausalLM, SiglipVisionModel
+        # Gemma's released checkpoint has `model.*` keys. In Transformers
+        # 4.57.1 AutoModel/Gemma3TextModel does not strip that prefix and silently
+        # initializes the decoder anew. Load the matching LM wrapper first.
+        language, language_info = AutoModelForCausalLM.from_pretrained(
+            language_path, output_loading_info=True, **kwargs)
+        vision, vision_info = SiglipVisionModel.from_pretrained(
+            vision_path, output_loading_info=True, **kwargs)
+        for name, info in (("language", language_info), ("vision", vision_info)):
+            errors = {key: info[key] for key in ("missing_keys", "mismatched_keys", "error_msgs")
+                      if info.get(key)}
+            if errors:
+                raise ValueError(f"incomplete pretrained {name} encoder: {errors}")
+        return cls(language.get_decoder(), vision)
 
     def forward(self, observation):
         # Each camera contributes its patch tokens. The final readout token can

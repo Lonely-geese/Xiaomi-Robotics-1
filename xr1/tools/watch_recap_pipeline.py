@@ -12,10 +12,13 @@ import time
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--profile', choices=['legacy','rlinf_1563'], default='legacy')
+    parser.add_argument('--profile', choices=['legacy','rlinf_1563','events_1563'], default='legacy')
+    parser.add_argument('--stop-after', choices=['critic','policy'], default='policy')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     root = repo/'.queue'/('recap_rlinf_1563_20261020' if args.profile == 'rlinf_1563' else 'recap_20261020')
+    if args.profile == 'events_1563':
+        root = repo/'.queue/recap_events_1563_20261021'
     root.mkdir(parents=True, exist_ok=True)
     lock = (root/'watchdog.lock').open('w')
     try:
@@ -24,8 +27,11 @@ def main():
         raise SystemExit('A RECAP watchdog is already running')
     restarts = 0
     while True:
+        if (root/'invalidated.json').exists():
+            raise SystemExit(f'Refusing to restart invalidated experiment: {root}')
         with (root/'controller.log').open('a') as log:
-            process = subprocess.Popen([sys.executable, '-u', str(repo/'xr1/tools/run_recap_pipeline.py'), '--profile', args.profile],
+            process = subprocess.Popen([sys.executable, '-u', str(repo/'xr1/tools/run_recap_pipeline.py'),
+                '--profile', args.profile, '--stop-after', args.stop_after],
                 cwd=repo, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             (root/'watchdog_status.json').write_text(json.dumps(dict(watchdog_pid=os.getpid(),
                 controller_pid=process.pid, controller_restarts=restarts, state='running'), indent=2))

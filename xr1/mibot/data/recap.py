@@ -66,6 +66,21 @@ def conditional_flags(positive, unconditional_prob, training=True):
     return positive
 
 
+def rlinf_positive_labels(pool, advantage, threshold):
+    """Match RLinf's dataset-type override after global quantile selection.
+
+    Demonstrations are always positive. Rollouts use the inclusive threshold;
+    unknown-outcome rollout frames remain unconditional. Human corrections in
+    rollouts receive no additional override in RLinf's offline implementation.
+    """
+    advantage = np.asarray(advantage)
+    if pool == 'sft':
+        return np.ones(advantage.shape, dtype=bool)
+    if pool != 'rollout':
+        raise ValueError(f'Unknown RECAP pool: {pool}')
+    return np.isfinite(advantage) & (advantage >= threshold)
+
+
 class BalancedPoolSampler(Sampler):
     """Every local batch has exactly half of each pool, on every rank.
 

@@ -48,6 +48,11 @@ class RecapRunRecord(Callback):
             manifest = json.loads((root/'prepared.json').read_text())
             if data.sft_size != manifest['sft_frames'] or data.rollout_size != manifest['rollout_frames']:
                 raise ValueError('Pool frame counts disagree with preparation manifest')
+            advantages = json.loads((root/'advantages_ready.json').read_text())
+            if advantages['sft_positive'] != advantages['sft_frames']:
+                raise ValueError('All SFT demonstration frames must be positive; refusing incorrect labels')
+            if manifest.get('experiment_fingerprint') != advantages.get('experiment_fingerprint'):
+                raise ValueError('Advantage labels belong to different reward/selection rules')
             record = dict(initial_model=pl_module._pretrained,
                 optimizer='restored with scheduler from checkpoint' if self.resume else 'fresh, no previous optimizer/scheduler state',
                 resumed_from=self.resume, starting_step=trainer.global_step,
@@ -58,9 +63,10 @@ class RecapRunRecord(Callback):
                 steps_per_epoch=trainer.num_training_batches,
                 epochs=trainer.max_epochs, total_steps=trainer.max_steps,
                 normalization_sha256=manifest['normalization_sha256'],
-                independent_policy_evaluation=False,
+                independent_policy_evaluation=manifest.get('independent_policy_evaluation', False),
+                experiment_fingerprint=manifest.get('experiment_fingerprint'),
                 trainable_parameters=sum(p.numel() for p in pl_module.parameters()),
-                advantages=json.loads((root/'advantages_ready.json').read_text()))
+                advantages=advantages)
             target = Path(trainer.default_root_dir, 'run_record.json')
             if self.resume:
                 with Path(trainer.default_root_dir, 'resume_history.jsonl').open('a') as handle:
@@ -125,8 +131,9 @@ def main(config: DictConfig):
     trainer = Trainer(**cfg.trainer, callbacks=callbacks, logger=CSVLogger(str(root), name='csv'))
     trainer.fit(model=model, datamodule=data, ckpt_path=resume)
     if trainer.is_global_zero:
+        manifest = json.loads((Path(os.environ['RECAP_DATA_DIR'])/'prepared.json').read_text())
         (root/'completed.json').write_text(json.dumps(dict(global_step=trainer.global_step,
-            epochs=trainer.current_epoch, independent_policy_evaluation=False), indent=2))
+            epochs=trainer.current_epoch, independent_policy_evaluation=manifest.get('independent_policy_evaluation', False)), indent=2))
 
 
 if __name__ == '__main__':

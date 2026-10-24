@@ -1,8 +1,125 @@
 # XR1 RECAP 网线训练
 
-## RLinf 原版结构：1563 示教实验
+## 2026-10-24：策略训练完成与推理
 
-启动命令：
+`events_1563` 策略已于 2026-10-23 17:08 UTC（北京时间 10 月 24 日 01:08）
+完成 10 epoch、16660 更新。最终轮平均训练 loss 为 `0.2049303204`，
+最后 100 步平均为 `0.2030561382`。本轮 `limit_val_batches=0`，
+未执行策略验证或实机成功率评测；最终 checkpoint 是推理测试候选，不代表已验证的最佳策略。
+
+推理使用实验目录
+`outputs/project_xiaomi-robotics-1/recap_events_1563_10ep_bs256_20261021/`：
+
+- `last.ckpt` 指向 `epoch09-step16660.ckpt`，模型文件为
+  `last.ckpt/checkpoint/mp_rank_00_model_states.pt`。
+- 配套使用该目录的 `config.py`、`normalize.json`，保留
+  `recap_conditioning=language`、`recap_guidance_scale=1.0`。
+- 部署入口自动使用正优势语言条件；critic 的 `best.pt` 用于优势标注，不是动作策略权重。
+
+从仓库根目录启动推理服务：
+
+```bash
+source xr1/scripts/env.sh
+python xr1/mibot/server/deploy.py \
+  --model xr1/outputs/project_xiaomi-robotics-1/recap_events_1563_10ep_bs256_20261021 \
+  --recap-guidance-scale 1.0
+```
+
+critic 选择 step 7500，三类事件平均验证 RMSE 为 `0.3403583089`；
+最终 step 8000 为 `0.3534773938`。验证集为 61 条示教、22 条运行成功、
+4 条纠正成功、2 条失败，按原始轨迹隔离。失败样本覆盖有限，且 rollout 训练与验证
+误差存在明显差距；后续应在统一协议下比较策略各轮权重并做实机评测。
+
+## 2026-10-22：使用已完成 critic 继续策略微调
+
+用户已授权“基于这个，继续微调 recap 分支的训练”。工作区切回 `recap`，保留现有改动。
+于 2026-10-22 13:27 UTC 启动 `events_1563 --stop-after policy` 后台流水线，
+依次核验数据、生成优势、执行 8 卡两步策略检查，再训练策略；已完成的 critic 不重训。
+
+- critic 使用 `recap_events_value_1563_20261021/best.pt`（step 7500，
+  event-macro validation RMSE 0.3403583089），SHA256 为
+  `7f90393671d33eca30d3f35c459f9ed879e33d55cd960f182afb3e937771cafa`。
+- 策略初始化固定为原 SFT `middle_mixed_old2000_5ep_lr2e6_20261013/epoch04-step22860.ckpt`，
+  使用新优化器；其余沿用下述事件奖励、筛选及语言条件配置。
+- 8 卡、每卡 16 示教 + 16 rollout、全局 batch 256；10 epoch、16660 步，
+  峰值学习率 2e-6。事件标签、原版 critic 适配及恢复相关测试共 22 项通过。
+- 启动配置与本次授权保存在 `.queue/recap_events_1563_20261021/launch.json`；
+  前次 critic 状态、代码差异和事件代码快照保存在同目录的
+  `policy_launch_history/20261022T132740Z/`。
+- 实际阶段以 `.queue/recap_events_1563_20261021/status.json` 为准；
+  策略输出为 `outputs/project_xiaomi-robotics-1/recap_events_1563_10ep_bs256_20261021/`，
+  仅在最终完成标记与 checkpoint 核验通过后视为训练完成。
+
+本次优势标签已生成，训练集自主片段阈值为 `0.00010418642341392115`；
+全部示教与保留的人工纠正片段均为正标签，验证片段不进入策略训练或阈值计算。
+8 卡两步检查通过，loss 为 `2.7344429493`、`2.5636327267`。
+正式策略训练于 2026-10-22 13:41 UTC 启动，已观察到实际参数更新及有限 loss；
+后台 watchdog 持续运行，每 1000 步保存恢复点、每 epoch 保存模型。
+
+## 2026-10-21：四类事件回报与严格筛选（critic 已启动）
+
+用户审核通过后，正式 critic 于 2026-10-21 07:07 UTC 启动。全量数据审计和独立的
+8 卡 2 步检查已通过。此次授权范围为 critic，完成 8000 更新后停止，不自动生成优势或训练策略。
+
+用户确认的原始终点奖励：示教成功 0，自主成功 0，纠错接管 -0.5，明确失败 -1。
+保留 RLinf 原版视觉语言 critic 结构；事件回报与筛选属于任务适配，不是原样复现 RLinf。
+普通步骤按统一帧数基准扣除小额时间成本，每段累计不超过 0.1；gamma=1。
+原始回报除以 1.1 后落在原版 201-bin head 的 [-1,0] 内，不改变终点奖励的语义。
+时间基准取保留来源轨迹的最大帧数，只用于时间成本，不把加速视频时长或录制结束当作任务超时。
+
+- 接管之前的自主段以 -0.5 终止，bootstrap=0，后面的人工成功不回传到这一段。
+- 已知成功 rollout 的人工纠正片段仅用于策略正向监督，不参与 critic 回报拟合。
+  失败 rollout 中的人工动作片段排除；人工交回后的自主片段另行评价。
+- 示教全部正标签；保留的人工纠正动作全部正标签。其余动作需要优势严格大于 0，
+  且达到训练集自主片段优势的 top 30% 阈值。验证数据不参与定阈值。
+- 未知 outcome、未知接管覆盖、接管发生在已裁掉动作中的轨迹全部从训练清单排除。
+  原始文件保持不变，逐段排除原因写入 `excluded.jsonl`。
+- 源数据没有 stop reason；只采用显式 success/failure，不推断危险、超时或设备中断。
+  已知接管标志及动作 0→1 切换按任务纠正接管解释，使用前移三帧之后的动作时间基准。
+- 验证按原轨迹分组，同一轨迹的所有片段都在同一侧；验证轨迹也从策略训练排除。
+  对筛选后稀少的失败类型补入至少两条完整验证轨迹。分类误差和实机成功率仍需训练后验证。
+- 两池继续 1:1、每卡 16+16、8 卡全局 256；原始 SFT `epoch04-step22860` 初始化，
+  新优化器、策略 10 epoch。critic 重新从预训练组件训练，旧 critic 不复用。
+  fingerprint 同时绑定源数据、奖励、切段和验证划分，防止旧 critic/优势标签误用。
+
+新数据：`data/recap_events_1563_20261021`；
+critic：`outputs/recap_events_value_1563_20261021`；
+策略：`outputs/project_xiaomi-robotics-1/recap_events_1563_10ep_bs256_20261021`。
+
+实际筛选：1563 条示教来源全部保留，rollout 保留 520 条来源中的有效片段，
+235 条整轨迹剔除（接管未知 219、结果未知 10、接管动作已被裁掉 6）。
+同时剔除失败轨迹中的人工片段，总计排除 105,886 帧。
+扣除独立验证及原有时间断点保护后，策略池为示教 165,241 帧、rollout 213,341 帧；
+每 epoch 1666 更新，10 epoch 16660 更新。critic 训练帧为示教 165,250、rollout 183,870。
+明确自主失败原轨迹仅剩 16 条，其中 2 条作为验证；该类别验证指标样本量有限。
+时间成本基准 2064 帧，每普通步骤约 -0.0000484496；终点奖励精确为 0/-0.5/-1。
+
+准备与只读数据核验（CPU）：
+
+```bash
+source xr1/scripts/env.sh
+python xr1/tools/prepare_recap_events.py
+python xr1/tools/verify_recap_events.py
+```
+
+准备脚本拒绝覆盖已有目录。本次经用户审核后使用以下入口启动：
+
+```bash
+source xr1/scripts/env.sh
+python -u xr1/tools/watch_recap_pipeline.py --profile events_1563 --stop-after critic
+```
+
+该命令依次执行数据审计、8 卡 critic smoke、critic 训练，然后停止。
+只有后续另行授权完整流程时，才继续优势计算、策略 smoke 和策略训练。
+训练前后的检查不会把离线 loss 当作实际插入成功率。
+
+## 历史实验：1563 示教，已因错误标签停止
+
+以下是 2026-10-20 实验的历史配置。该实验把示教也按优势阈值筛选是实现错误，
+于 step 6744 停止，最近完整恢复点为 step 6000。禁止恢复该实验；controller 和 watchdog
+现会拒绝带 `invalidated.json` 的实验目录。旧权重、数据和日志保留用于对照。
+
+历史启动命令（已禁用）：
 
 ```bash
 source xr1/scripts/env.sh
@@ -31,7 +148,8 @@ python -u xr1/tools/watch_recap_pipeline.py --profile rlinf_1563
   诊断结果，按 rollout validation RMSE 选择 checkpoint。这不是策略独立成功率评测。
 - 回报遵循原版 -1/成功终止 0/失败终止 -300、gamma=1；
   N-step=10，在全部已知 outcome 的两池帧上统一取优势 top 30%。
-  不强制把全部示教或人工帧改成正标签；未知 outcome 不造价值目标，策略按无条件样本保留。
+  当时错误地没有强制把全部示教改成正标签，与 RLinf 实现不符；也没有人工纠正标签覆盖。
+  未知 outcome 不造价值目标，策略当时按无条件样本保留。
   接管时间仍用于 action chunk 截断，防止窗口跨自主/人工切换；采集时间断点也截断。
 - XR1 的 CFG 适配遵循原版 `positive_only_conditional`：正样本以 0.1 概率
   去掉 `\nAdvantage: positive` 语言条件，负样本始终无条件。

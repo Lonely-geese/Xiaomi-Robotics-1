@@ -2,7 +2,6 @@
 """Train the native RLinf SigLIP2/Gemma3 categorical critic on two pools."""
 import argparse
 from collections import OrderedDict
-import hashlib
 import json
 import os
 import pickle
@@ -16,13 +15,13 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, Dataset
 
 from mibot.data.recap import BalancedPoolSampler
+from mibot.data.recap_events import require_matching_data, validation_episode
 from mibot.models.recap_rlinf import build_critic,build_processor,observation,verify_upstream
 from recap_recovery import atomic_torch_save
 
 
 def is_validation(record):
-    key=f"{record['dataset']}:{record['episode_index']}"
-    return int(hashlib.sha256(key.encode()).hexdigest()[:8],16)%20==0
+    return validation_episode(record)
 
 
 class NativeFrames(Dataset):
@@ -45,7 +44,8 @@ class NativeFrames(Dataset):
         else:self.cache.move_to_end(episode)
         images,returns=self.cache[episode]
         t=self.text[r['prompt']]
-        return (torch.from_numpy(images[frame].copy()),t['input_ids'][0],t['attention_mask'][0],
+        image_frame = frame + int(r.get('image_start', 0))
+        return (torch.from_numpy(images[image_frame].copy()),t['input_ids'][0],t['attention_mask'][0],
                 torch.tensor(returns[frame]/self.scale,dtype=torch.float32))
 
 
@@ -69,6 +69,12 @@ def main(args):
         persistent_workers=args.workers>0,pin_memory=True,prefetch_factor=2 if args.workers else None)
     valsets={pool:NativeFrames([r for r in validation if r['pool']==pool],metadata['return_scale'],processor)
              for pool in ('sft','rollout')}
+    if metadata.get('reward_version'):
+        for event in ('autonomous_success', 'takeover', 'failure'):
+            subset = [r for r in validation if r.get('event') == event]
+            if not subset:
+                raise ValueError(f'Validation split has no {event} segments')
+            valsets[event] = NativeFrames(subset, metadata['return_scale'], processor)
     valloaders={pool:DataLoader(ds,batch_size=32,sampler=range(rank,len(ds),world),num_workers=args.workers,
         pin_memory=True,persistent_workers=args.workers>0) for pool,ds in valsets.items()}
     # FP32 master parameters with BF16 autocast; model topology and native loss
@@ -93,8 +99,7 @@ def main(args):
             saved=torch.load(previous,map_location='cpu',weights_only=False)
             if rank==0 and resume.exists():resume.rename(resume.with_name(f'resume.corrupt.{time.time_ns()}.pt'))
             if world>1:dist.barrier()
-        if saved['metadata']['source_metadata_sha256']!=metadata['source_metadata_sha256']:
-            raise ValueError('Critic recovery belongs to different data')
+        require_matching_data(saved['metadata'], metadata)
         model.load_state_dict(saved['model'],strict=True)
         optimizer.load_state_dict(saved['optimizer']);scheduler.load_state_dict(saved['scheduler'])
         step,epoch,start_batch,best=[saved[k] for k in ('steps','next_epoch','next_batch','best')]
@@ -104,7 +109,7 @@ def main(args):
     record=dict(backend='native_rlinf',upstream_commit=verify_upstream(),metadata=metadata,
         config=model.config.to_dict(),steps=args.steps,global_batch=32*world,per_gpu_batch=32,
         optimizer='AdamW FP32 master + BF16 autocast; native RLinf parameter groups and LR warmup',
-        checkpoint_selection='rollout episode-disjoint validation RMSE',
+        checkpoint_selection='event-macro validation RMSE' if metadata.get('reward_version') else 'rollout episode-disjoint validation RMSE',
         training_episodes=[r['name'] for r in training],validation_episodes=[r['name'] for r in validation])
     if rank==0:
         (args.output/'run_record.json').write_text(json.dumps(record,indent=2))
@@ -134,6 +139,9 @@ def main(args):
             if world>1:dist.all_reduce(total)
             metrics[pool+'_val_loss']=float(total[0]/total[2])
             metrics[pool+'_val_rmse']=float((total[1]/total[2]).sqrt())
+        if metadata.get('reward_version'):
+            metrics['event_macro_val_rmse'] = sum(metrics[e+'_val_rmse'] for e in (
+                'autonomous_success', 'takeover', 'failure'))/3
         if rank==0:
             print(json.dumps(metrics),flush=True)
             with (args.output/'metrics.jsonl').open('a') as f:f.write(json.dumps(metrics)+'\n')
@@ -160,8 +168,9 @@ def main(args):
                     seconds_per_step=(time.monotonic()-started)/(batch_index-start_batch+1))),flush=True)
             if step%500==0 or step==args.steps:
                 metrics=evaluate()
-                improved=metrics['rollout_val_rmse']<best
-                best=min(best,metrics['rollout_val_rmse'])
+                selection_key = 'event_macro_val_rmse' if metadata.get('reward_version') else 'rollout_val_rmse'
+                improved=metrics[selection_key]<best
+                best=min(best,metrics[selection_key])
                 if rank==0:
                     saved=dict(model=model.state_dict(),metadata=metadata,metrics=metrics,backend='native_rlinf',
                         config=model.config.to_dict(),upstream_commit=record['upstream_commit'])
@@ -171,7 +180,8 @@ def main(args):
             if step>=args.steps:break
         epoch+=1;start_batch=0
         if step<args.steps:save_resume(epoch,0)
-    if rank==0:(args.output/'completed.json').write_text(json.dumps(dict(steps=step,epochs=epoch,best_rollout_val_rmse=best,backend='native_rlinf'),indent=2))
+    if rank==0:(args.output/'completed.json').write_text(json.dumps(dict(steps=step,epochs=epoch,best_validation_rmse=best,
+        checkpoint_selection=record['checkpoint_selection'],backend='native_rlinf'),indent=2))
     if world>1:dist.destroy_process_group()
 
 

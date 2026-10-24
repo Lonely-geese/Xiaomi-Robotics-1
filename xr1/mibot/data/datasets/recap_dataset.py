@@ -60,6 +60,8 @@ class RecapJsonDataset(JsonDataset):
         meta = traj['recap']
         offset = int(meta['offset']) + sample['frame_index']
         sidecar = self._sidecar(meta['sidecar'])
+        if (meta['pool'] == 'sft' or meta.get('event') == 'correction') and not bool(sidecar['positive'][offset]):
+            raise ValueError('Demonstration/correction has a negative RECAP label; regenerate advantage labels')
         result['recap_positive'] = torch.tensor(bool(sidecar['positive'][offset]))
         result['recap_pool'] = torch.tensor(0 if meta['pool'] == 'sft' else 1)
         return result

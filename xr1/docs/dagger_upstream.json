@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/RLinf/RLinf",
+  "commit": "50f22ad9a7825eeaaf4180dca5300f2fa70758be",
+  "purpose": "Reference only; XR1 adaptation, not vendored runtime",
+  "files": {
+    "examples/embodiment/config/realworld_pnp_dagger_openpi.yaml": "80b2364071279fe290a94e67f41c23690d9b3aa8fc6288da6cfa63f46f2b0f1a",
+    "rlinf/workers/actor/fsdp_dagger_policy_worker.py": "3cc3840deeed70e95f6302fd30fc4cd9daf3ea143f30a52f25672dd51488ba19",
+    "rlinf/data/datasets/dagger/dataset.py": "7aaf5b4692c8ba4bc4cd8bf0faef9a3fb9652631d166c1b3635070fd59f1523c"
+  }
+}

@@ -1,0 +1,2 @@
+# Install in the existing XR1 environment. Core requirements are in requirements.txt.
+pandas==2.2.3

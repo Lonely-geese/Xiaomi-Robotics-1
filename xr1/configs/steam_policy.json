@@ -1,0 +1,26 @@
+{
+  "manifest": "/data/wz/STEAM/lwd_20261024/manifest.json",
+  "advantages": "/data/wz/STEAM/lwd_20261024/advantages.parquet",
+  "actor_vlm_path": "/data/wz/Xiaomi-Robotics-1/models/Qwen3-VL-4B-Instruct",
+  "sft_checkpoint": "/data/wz/Xiaomi-Robotics-1/outputs/project_xiaomi-robotics-1/baseline_future3_resume1500_20261023/last.ckpt/checkpoint/mp_rank_00_model_states.pt",
+  "active_action_dims": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "sample_stride": 1,
+  "unconditional_prob": 0.1,
+  "seed": 0,
+  "micro_batch_size": 16,
+  "global_batch_size": 128,
+  "max_steps": 10000,
+  "lr": 2e-06,
+  "warmup_steps": 500,
+  "clip_grad": 1.0,
+  "save_every": 1000,
+  "output": "/data/wz/STEAM/runs/policy"
+}

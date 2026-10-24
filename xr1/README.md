@@ -4,6 +4,8 @@ Post-training and deployment code for **Xiaomi-Robotics-1** — fine-tune the re
 
 All commands below run from the `xr1/` directory.
 
+For STEAM offline reinforcement learning (temporal-progress ensemble, advantage labeling, and XR1 CFG policy training), see [the STEAM guide](docs/steam.md).
+
 ---
 
 ## Installation

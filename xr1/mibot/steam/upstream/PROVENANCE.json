@@ -1,0 +1,76 @@
+{
+  "repository": "https://github.com/RLinf/RLinf",
+  "commit": "30e0236981c6a1dc19202de64116834c12673828",
+  "files": [
+    {
+      "local": "models/steam/__init__.py",
+      "source": "rlinf/models/embodiment/value_model/steam/__init__.py",
+      "sha256": "a15fc2e98e4bcb17d4cdbf00aba50abfb511aae18584f6054859f7dafe42a656"
+    },
+    {
+      "local": "models/steam/checkpoint_merge.py",
+      "source": "rlinf/models/embodiment/value_model/steam/checkpoint_merge.py",
+      "sha256": "5862cdce19f43c9fd9c6346b79e981192ff875c9200b7a50b967b0711b0caa8a"
+    },
+    {
+      "local": "models/steam/configuration.py",
+      "source": "rlinf/models/embodiment/value_model/steam/configuration.py",
+      "sha256": "021f1f97812ede6ca6e696eb9c8cbf7cf652625c4c56076cd56b2fd6e5318143"
+    },
+    {
+      "local": "models/steam/ensemble_modeling_critic.py",
+      "source": "rlinf/models/embodiment/value_model/steam/ensemble_modeling_critic.py",
+      "sha256": "6b46e64b61afc420b8d90dad1472d94e13807f75496cd4d8bc3b22c66de0fbeb"
+    },
+    {
+      "local": "models/steam/modeling_critic.py",
+      "source": "rlinf/models/embodiment/value_model/steam/modeling_critic.py",
+      "sha256": "260fcc93a377f5dcc7812073c44831ed4117f9a9fc77d95b2f9b76486f2a2ddf"
+    },
+    {
+      "local": "models/steam/modeling_steam.py",
+      "source": "rlinf/models/embodiment/value_model/steam/modeling_steam.py",
+      "sha256": "102e6a64fcaba8f39df9ee723d4c83b38be84c13d526bb5e69430810324b59ef"
+    },
+    {
+      "local": "models/steam/processing.py",
+      "source": "rlinf/models/embodiment/value_model/steam/processing.py",
+      "sha256": "f0c80a31bc5010179a6e29859886b5896e64ee62acdfb4318b0a564d34b7e898"
+    },
+    {
+      "local": "models/value_common/image_text_processing.py",
+      "source": "rlinf/models/embodiment/value_model/value_common/image_text_processing.py",
+      "sha256": "2deb7f9b7f91432d7fc10b7b026ac7cad2f367784f6f3663ff0ded2d6409e37e"
+    },
+    {
+      "local": "data/pair_dataset.py",
+      "source": "rlinf/data/datasets/steam/pair_dataset.py",
+      "sha256": "39caa55522eff3fdc4bcf44915d02e69f7401d134901ef5eb33a3440e5691515"
+    },
+    {
+      "local": "data/binning.py",
+      "source": "rlinf/data/datasets/steam/binning.py",
+      "sha256": "bf7174aaf39c2307ba9ed7af45e311f5946227c592b2819bc971dbcc8dc74455"
+    },
+    {
+      "local": "advantage.py",
+      "source": "rlinf/algorithms/offline/process/advantage.py",
+      "sha256": "4cb2714cdeea34955480809a8ebc0b46aa1531b492b809c0b954dff141269020"
+    },
+    {
+      "local": "LICENSE",
+      "source": "LICENSE",
+      "sha256": "a48a5e0eb7baa16390fb777b366c294f9840e74d2e6795502288f27cd5135834"
+    }
+  ],
+  "patches": {
+    "data/pair_dataset.py": "Add optional TrajectorySource injection to the two dataset constructors; sampling, labels and collator unchanged."
+  },
+  "extractions": {
+    "routing.py": {
+      "source": "rlinf/models/embodiment/openpi_cfg/openpi_cfg_action_model.py",
+      "symbol": "compute_cfg_routing_masks",
+      "sha256": "596ecad29457c0947085a9b75e939309f45027c10fbf9e60c5284543c7f8f349"
+    }
+  }
+}

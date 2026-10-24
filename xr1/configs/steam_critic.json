@@ -1,0 +1,17 @@
+{
+  "manifest": "/data/wz/STEAM/lwd_20261024/manifest.json",
+  "vision_path": "/data/wz/Xiaomi-Robotics-1/models/siglip-so400m-patch14-384",
+  "language_path": "/data/wz/Xiaomi-Robotics-1/models/gemma-3-270m-it",
+  "k": 32,
+  "num_bins": 32,
+  "ensemble_size": 3,
+  "length_scale_enabled": false,
+  "seed": 0,
+  "micro_batch_size": 16,
+  "global_batch_size": 128,
+  "max_steps": 16000,
+  "lr": 5e-05,
+  "warmup_steps": 500,
+  "save_every": 1000,
+  "output": "/data/wz/STEAM/runs/critic"
+}

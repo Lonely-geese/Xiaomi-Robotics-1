@@ -336,6 +336,39 @@ class xr1(nn.Module):
     def generate(self, batch):
         return self.forward(batch, return_loss=False)
 
+    def prepare_flow_condition(self, observation, action_mask):
+        """Build differentiable, observation-only conditioning for RL vector fields.
+
+        Pass an inference prompt, without SFT action/score/state target tokens.
+        Unlike forward(), this neither mutates inputs nor repeats the batch.
+        """
+        inputs = dict(observation)
+        state = inputs.pop("state").to(self.sink.weight.dtype)
+        if any(key in inputs for key in ("action", "labels", "vlm_action_target",
+                                         "action_vlm_condition_segments")):
+            raise ValueError("RL conditioning requires an observation-only inference prompt")
+        ids = inputs["input_ids"]
+        if ((ids >= ACTION_START_ID) & (ids < ACTION_END_ID)).any() or (ids == SCORE_ID).any() or (ids == STATE_ID).any():
+            raise ValueError("RL prompts must not contain SFT target tokens")
+        mask = action_mask.to(self.sink.weight.dtype)
+        if self.active_action_dims is not None:
+            dimensions = torch.zeros(mask.shape[-1], device=mask.device, dtype=mask.dtype)
+            dimensions[self.active_action_dims] = 1
+            if (mask * (1 - dimensions)).any():
+                raise ValueError("RL action_mask enables dimensions outside active_action_dims")
+        outputs = self.vlm(**inputs, use_cache=True, skip_logits=True)
+        cache = list(outputs.past_key_values)
+        batch, horizon, _ = mask.shape
+        query_length = 1 + state.shape[1] + horizon
+        positions = torch.arange(query_length, device=state.device).view(1, 1, -1).repeat(3, batch, 1)
+        positions = positions + outputs.position_ids.max(dim=-1).values[..., None] + 1
+        positions[:, :, -horizon:] += 10
+        cache_mask = outputs.attention_mask[:, None, :].expand(-1, query_length, -1)
+        causal = torch.ones(batch, query_length, query_length, device=state.device, dtype=torch.bool).tril()
+        return dict(action_mask=mask, state_embed=self.state_projector(state),
+                    position_embeds=self.rotary_emb(mask, positions), past_key_values=cache,
+                    attn_mask=torch.cat([cache_mask, causal], -1)[:, None].bool(), prefix_length=0)
+
     @auto_cast
     def forward(self, batch, return_loss=False):
         compute_loss = self.training or return_loss

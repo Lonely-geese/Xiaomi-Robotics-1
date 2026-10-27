@@ -3,6 +3,8 @@
 import copy
 import hashlib
 import json
+import random
+import threading
 from functools import lru_cache
 from pathlib import Path
 
@@ -63,7 +65,54 @@ class XR1TrajectorySource(TrajectorySource):
         return {"episode": episode, "frame": frame}
 
     def get_view_from_sample(self, sample, camera_key):
+        if "cached_views" in sample:
+            return sample["cached_views"][camera_key]
         return self.get_view(sample["episode"], sample["frame"], camera_key)
+
+    def load_pair_views(self, episode, frame_t, frame_tk, camera_keys):
+        """Open each camera once; independently seek both frames as the reference does."""
+        import av
+
+        record = self.records[episode]
+        frames = (frame_t, frame_tk)
+        if any(not 0 <= f < record["usable_frames"] for f in frames):
+            raise IndexError("frame outside censored episode")
+        views = [{}, {}]
+        for camera_key in camera_keys:
+            info = episode_json(record["path"])["observations"][camera_key][0]
+            with av.open(info["path"]) as container:
+                stream = container.streams.video[0]
+                stream.thread_count = 1
+                rate = float(stream.average_rate or stream.guessed_rate)
+                targets = [
+                    int(stream.start_time or 0)
+                    + round(
+                        (f + int(info.get("start", 0))) / rate / float(stream.time_base)
+                    )
+                    for f in frames
+                ]
+                for i, target in enumerate(targets):
+                    # Decoding continuously across an open GOP can differ from
+                    # independently seeking its second timestamp. Keep both seeks.
+                    container.seek(
+                        target, stream=stream, backward=True, any_frame=False
+                    )
+                    for decoded in container.decode(stream):
+                        if decoded.pts is not None and decoded.pts >= target:
+                            image = decoded.to_ndarray(format="rgb24")
+                            if info.get("crop_bbox") is not None:
+                                top, left, height, width = info["crop_bbox"]
+                                image = image[top : top + height, left : left + width]
+                            views[i][camera_key] = image
+                            break
+                    else:
+                        raise IndexError(
+                            f"video has no requested frame: {info['path']}:{frames[i]}"
+                        )
+        return tuple(
+            {"episode": episode, "frame": f, "cached_views": v}
+            for f, v in zip(frames, views, strict=True)
+        )
 
     def get_view(self, episode, frame, camera_key):
         import av
@@ -91,7 +140,9 @@ class XR1TrajectorySource(TrajectorySource):
         raise IndexError(f"video has no requested frame: {info['path']}:{index}")
 
 
-def pair_dataset(records, config, *, inference=False, seed=0):
+def pair_dataset(
+    records, config, *, inference=False, seed=0, dataset_class=PairDataset
+):
     source = XR1TrajectorySource(records)
     common = {
         "dataset_path": "xr1-json",
@@ -102,7 +153,7 @@ def pair_dataset(records, config, *, inference=False, seed=0):
     }
     if inference:
         return BinaryPairInferenceDataset(**common, prompt=None)
-    dataset = PairDataset(
+    dataset = dataset_class(
         **common,
         only_success=False,
         num_bins=config.get("num_bins", 32),
@@ -156,12 +207,17 @@ class PolicyDataset(Dataset):
         )
 
         class CensoredJsonDataset(JsonDataset):
+            def _prompt(self, traj):
+                return super()._prompt(traj, getattr(prompt_context, "rng", None))
+
             @staticmethod
             def _read_json(path):
                 result = copy.deepcopy(JsonDataset._read_json(path))
                 result["num_frames"] = lengths[path]
                 return result
 
+        prompt_context = threading.local()
+        self.prompt_context = prompt_context
         lengths = {r["path"]: r["usable_frames"] for r in records}
         self.dataset = CensoredJsonDataset(
             {
@@ -207,6 +263,14 @@ class PolicyDataset(Dataset):
         item["advantage"] = self.advantages[index]
         return item
 
+    def load_seeded(self, request):
+        index, seed = request
+        self.prompt_context.rng = random.Random(seed)
+        try:
+            return self[index]
+        finally:
+            del self.prompt_context.rng
+
 
 class PolicyCollator:
     def __init__(self, actor_path, unconditional_prob=0.1):
@@ -240,7 +304,7 @@ class PolicyCollator:
         observation["state"] = torch.stack([item["state"] for item in items])
         return observation
 
-    def __call__(self, items):
+    def __call__(self, items, random_values=None):
         from .upstream.routing import compute_cfg_routing_masks
 
         advantage = torch.tensor([i["advantage"] for i in items], dtype=torch.bool)
@@ -248,6 +312,7 @@ class PolicyCollator:
             advantage,
             positive_only_conditional=True,
             unconditional_prob=self.unconditional_prob,
+            random_values=random_values,
         )
         return {
             "observation": self.observations(

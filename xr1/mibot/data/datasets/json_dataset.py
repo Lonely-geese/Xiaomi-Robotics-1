@@ -160,11 +160,11 @@ class JsonDataset(Dataset):
         logger.info(f"Total train samples: {len(samples)}")
         return samples
 
-    def _prompt(self, traj):
+    def _prompt(self, traj, rng=None):
         prompts = traj.get("instruction", {}).get("general") or []
         if not prompts:
             raise ValueError(f"trajectory {traj.get('time', '<unknown>')} has no instruction.general")
-        prompt = copy.deepcopy(random.choice(prompts))
+        prompt = copy.deepcopy((rng or random).choice(prompts))
         conversations = prompt.get("conversations", [])
         if len(conversations) >= 2:
             conversations[0]["value"] += " /no_cot"
@@ -225,8 +225,8 @@ class JsonDataset(Dataset):
 
         with av.open(path) as container:
             stream = container.streams.video[0]
-            stream.thread_type = "AUTO"
-            stream.thread_count = 2
+            stream.thread_type = os.environ.get("XR1_VIDEO_THREAD_TYPE", "AUTO")
+            stream.thread_count = int(os.environ.get("XR1_VIDEO_THREADS", "2"))
             rate = float(stream.average_rate or stream.guessed_rate)
             start_pts = int(stream.start_time or 0)
             target_pts = start_pts + round(float(index) / rate / float(stream.time_base))

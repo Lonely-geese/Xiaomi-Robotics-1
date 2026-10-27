@@ -73,6 +73,20 @@ def mean_metrics(metrics, device):
     return dict(zip(names, (values / world_size()).tolist(), strict=True))
 
 
+def fp32_average_hook(state, bucket):
+    """Overlap DDP buckets with backward while retaining FP32 gradient reduction."""
+    buffer = bucket.buffer()
+    reduced = buffer.float()
+    future = dist.all_reduce(reduced, async_op=True).get_future()
+
+    def finish(future):
+        reduced.div_(world_size())
+        buffer.copy_(reduced)
+        return buffer
+
+    return future.then(finish)
+
+
 def gather_rng():
     local = {"torch": torch.get_rng_state(), "python": random.getstate(),
              "cuda": torch.cuda.get_rng_state() if torch.cuda.is_available() else None}

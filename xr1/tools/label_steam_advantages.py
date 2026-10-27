@@ -1,7 +1,9 @@
 """Stage 2: conservative ensemble advantages and strict RLinf quantile labels."""
 
 import argparse
+from datetime import timedelta
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +14,23 @@ from mibot.steam.data import digest, pair_dataset, read_manifest
 from mibot.steam.runtime import move, resolve_checkpoint
 from mibot.steam.upstream.advantage import apply_boolean_label, quantile_threshold
 from torch.utils.data import DataLoader
+
+
+def assign_remaining(episodes, cache, world_size):
+    """Assign each uncached episode once, balancing the remaining frame counts."""
+    pending = [
+        i for i, record in enumerate(episodes)
+        if not (cache / (record["episode_id"] + ".parquet")).exists()
+    ]
+    assignments = [[] for _ in range(world_size)]
+    loads = [0] * world_size
+    if world_size > 1:
+        pending.sort(key=lambda i: episodes[i]["usable_frames"], reverse=True)
+    for i in pending:
+        worker = min(range(world_size), key=lambda r: loads[r])
+        assignments[worker].append(i)
+        loads[worker] += episodes[i]["usable_frames"]
+    return assignments
 
 
 def label_scores(frame, rollout_fraction=0.3, expert_fraction=0.8):
@@ -55,6 +74,13 @@ def main():
     p.add_argument("--all-experts-positive", action="store_true")
     p.add_argument("--allow-smoke", action="store_true")
     a = p.parse_args()
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    rank = int(os.environ.get("RANK", "0"))
+    torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", "0")))
+    if world_size > 1:
+        # CPU collectives coordinate independent GPU inference workers. The final
+        # barrier may wait for a long episode; torchrun stops peers on failure.
+        torch.distributed.init_process_group("gloo", timeout=timedelta(hours=24))
     path = resolve_checkpoint(a.checkpoint)
     saved = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
     cfg = saved["config"]
@@ -65,22 +91,36 @@ def main():
     manifest = read_manifest(a.manifest)
     if cfg["manifest_sha256"] != digest(a.manifest):
         raise ValueError("critic and labeling manifests differ")
+    # Per-episode shards make a long labeling run restartable. A checkpoint hash prevents stale reuse.
+    cache = Path(str(a.output) + ".parts")
+    cache.mkdir(parents=True, exist_ok=True)
+    metadata = cache / "identity.json"
+    shared = [None]
+    if rank == 0:
+        identity = {
+            "manifest_sha256": digest(a.manifest),
+            "checkpoint_sha256": digest(path),
+        }
+        if metadata.exists() and json.loads(metadata.read_text()) != identity:
+            raise ValueError("stale labeling cache")
+        temporary_metadata = metadata.with_suffix(".json.tmp")
+        temporary_metadata.write_text(json.dumps(identity) + "\n")
+        temporary_metadata.replace(metadata)
+        shared[0] = (identity, assign_remaining(manifest["episodes"], cache, world_size))
+    if world_size > 1:
+        torch.distributed.broadcast_object_list(shared, src=0)
+    identity, assignments = shared[0]
     model, collate = build_critic(cfg)
     model.load_state_dict(saved["model"], strict=True)
     model = model.to("cuda").eval()
     del saved
-    # Per-episode shards make a long labeling run restartable. A checkpoint hash prevents stale reuse.
-    identity = {
-        "manifest_sha256": digest(a.manifest),
-        "checkpoint_sha256": digest(path),
-    }
-    cache = Path(str(a.output) + ".parts")
-    cache.mkdir(parents=True, exist_ok=True)
-    metadata = cache / "identity.json"
-    if metadata.exists() and json.loads(metadata.read_text()) != identity:
-        raise ValueError("stale labeling cache")
-    metadata.write_text(json.dumps(identity) + "\n")
-    for i, record in enumerate(manifest["episodes"]):
+    print(json.dumps({
+        "event": "labeling_ready", "rank": rank, "world_size": world_size,
+        "assigned_episodes": len(assignments[rank]),
+        "assigned_frames": sum(manifest["episodes"][i]["usable_frames"] for i in assignments[rank]),
+    }), flush=True)
+    for i in assignments[rank]:
+        record = manifest["episodes"][i]
         shard = cache / (record["episode_id"] + ".parquet")
         if shard.exists():
             continue
@@ -90,7 +130,7 @@ def main():
             dataset, batch_size=a.batch_size, num_workers=a.workers, collate_fn=collate
         )
         with torch.inference_mode():
-            for batch in loader:
+            for batch_index, batch in enumerate(loader):
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     out = model.predict(move(batch["observation"], "cuda"))
                 scores = out.predicted_values.float().cpu().tolist()
@@ -109,6 +149,12 @@ def main():
                             "type": record["type"],
                         }
                     )
+                if (batch_index + 1) % 100 == 0:
+                    print(json.dumps({
+                        "event": "episode_progress", "rank": rank,
+                        "episode_id": record["episode_id"], "frames_done": len(rows),
+                        "total_frames": record["usable_frames"],
+                    }), flush=True)
         # Exact RLinf terminal-row convention; this is a score placeholder, not a success reward.
         rows.append(
             {
@@ -129,9 +175,17 @@ def main():
         pd.DataFrame(rows).to_parquet(temporary, index=False)
         temporary.replace(shard)
         print(
-            json.dumps({"episodes_done": i + 1, "total": len(manifest["episodes"])}),
+            json.dumps({"rank": rank, "episode_id": record["episode_id"],
+                        "episodes_done": sum(1 for _ in cache.glob("*.parquet")),
+                        "total": len(manifest["episodes"])}),
             flush=True,
         )
+    if world_size > 1:
+        torch.distributed.barrier()
+        torch.distributed.destroy_process_group()
+    if rank != 0:
+        return
+    # Fit quantiles once on all episodes, never independently per worker.
     result = pd.concat(
         [
             pd.read_parquet(cache / (r["episode_id"] + ".parquet"))

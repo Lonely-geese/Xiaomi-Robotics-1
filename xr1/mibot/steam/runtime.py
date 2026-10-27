@@ -45,13 +45,13 @@ def stopping(device):
     return bool(flag.item())
 
 
-def move(x, device):
+def move(x, device, non_blocking=False):
     if isinstance(x, torch.Tensor):
-        return x.to(device)
+        return x.to(device, non_blocking=non_blocking)
     if isinstance(x, dict):
-        return {k: move(v, device) for k, v in x.items()}
+        return {k: move(v, device, non_blocking) for k, v in x.items()}
     if isinstance(x, (list, tuple)):
-        return type(x)(move(v, device) for v in x)
+        return type(x)(move(v, device, non_blocking) for v in x)
     return x
 
 
@@ -98,7 +98,10 @@ def save(directory, model, optimizer, step, config, rng=None):
         )
         pointer = directory / "latest.json.tmp"
         pointer.write_text(
-            json.dumps({"checkpoint": str((target / "model.pt").resolve())}) + "\n"
+            json.dumps(
+                {"checkpoint": str((target / "model.pt").resolve()), "step": step}
+            )
+            + "\n"
         )
         pointer.replace(directory / "latest.json")
         print(
@@ -127,10 +130,11 @@ def resolve_checkpoint(path):
     return path
 
 
-def restore(path, model, optimizer, config, rng=None):
+def restore(path, model, optimizer, config, rng=None, *, allow_config_changes=()):
     path = resolve_checkpoint(path)
     saved = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
-    if saved["config"] != config or saved["world_size"] != world_size():
+    validate_resume_config(saved["config"], config, allow_config_changes)
+    if saved["world_size"] != world_size():
         raise ValueError("resume requires the saved configuration and world size")
     model.load_state_dict(saved["model"], strict=True)
     local = torch.load(
@@ -146,6 +150,12 @@ def restore(path, model, optimizer, config, rng=None):
     if rng is not None:
         rng.bit_generator.state = local["sampler"]
     return saved["step"]
+
+
+def validate_resume_config(saved, current, allowed=()):
+    changed = {k for k in saved.keys() | current.keys() if saved.get(k) != current.get(k)}
+    if changed - set(allowed):
+        raise ValueError(f"resume configuration differs: {sorted(changed - set(allowed))}")
 
 
 def log(value):

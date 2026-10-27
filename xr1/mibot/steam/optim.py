@@ -43,6 +43,17 @@ class ShardedMasterAdamW(torch.optim.Optimizer):
         self.inner = (torch.optim.AdamW(self.masters, lr=lr, weight_decay=weight_decay,
                                        betas=betas, eps=eps, foreach=False)
                       if self.masters else None)
+        self.coalesced_broadcast = False
+
+    def configure_execution(self, *, fused=False, coalesced_broadcast=False):
+        self.coalesced_broadcast = coalesced_broadcast
+        if self.inner is not None:
+            for group in self.inner.param_groups:
+                group["fused"], group["foreach"] = fused, False
+            if fused:
+                for master, state in self.inner.state.items():
+                    if "step" in state:
+                        state["step"] = state["step"].to(master.device)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -59,6 +70,12 @@ class ShardedMasterAdamW(torch.optim.Optimizer):
                 self.parameters[index].copy_(master)
             self.inner.zero_grad(set_to_none=True)
         if self.shard_world_size > 1:
+            if self.coalesced_broadcast:
+                for owner in range(self.shard_world_size):
+                    tensors = [p for p, r in zip(self.parameters, self.owners) if r == owner]
+                    if tensors:
+                        dist._broadcast_coalesced(dist.group.WORLD, tensors, 64 * 1024 * 1024, owner)
+                return
             # Identical order on every rank, including parameters unused this step.
             for parameter, owner in zip(self.parameters, self.owners, strict=True):
                 dist.broadcast(parameter, src=owner)

@@ -1,0 +1,92 @@
+{
+  "tests": "30 passed",
+  "distributed_validation": "5 two-rank real updates, FP32 DDP hook and coalesced broadcasts match reference, optimizer state restores",
+  "decoder_parity": "2 real batches x32 samples x3 cameras; all collated tensors exactly equal between original AUTO/2 decoder and SLICE/1 decoder",
+  "cpu_stress": {
+    "batches": 80,
+    "global_batch": 256,
+    "consumer_interval_seconds": 2,
+    "steady_max_wait_seconds": 0.00035629188641905785,
+    "steady_mean_wait_seconds": 0.000133376621605852
+  },
+  "gpu_benchmark": {
+    "log": "/data/wz/STEAM/optimization_policy_20261027/benchmark_v1.log",
+    "steps": 30,
+    "warmup_seconds": 21.762279510498047,
+    "steady_steps": 29,
+    "mean_seconds": 2.145533265738652,
+    "max_seconds": 2.559725761413574,
+    "min_seconds": 2.0167531967163086,
+    "micro_batch": 32,
+    "global_batch": 256,
+    "all_steady_below_5": true,
+    "includes": "real random data preparation/wait, H2D, forward/backward, DDP gradient synchronization, optimizer and parameter broadcasts",
+    "excludes": "initialization, first-step warmup and periodic checkpoint writes",
+    "mean_data_seconds": 0.011117769537718388,
+    "mean_compute_seconds": 2.0287065686465335,
+    "mean_update_seconds": 0.1047722389560257
+  },
+  "timestamp": "2026-10-27T14:26:47.173213+08:00",
+  "checkpoint3500": {
+    "checkpoint": "/data/wz/STEAM/runs/policy_8gpu_20261026/step_00003500_1793081742121768931/model.pt",
+    "step": 3500,
+    "verified": "model step/world size, all eight optimizer shards at step 3500, all master tensors FP32"
+  },
+  "production": {
+    "pipeline": "/data/wz/STEAM/runs/pipeline_policy_bs256_20261027",
+    "log": "/data/wz/STEAM/runs/pipeline_policy_bs256_20261027/policy.log",
+    "pid": 820636,
+    "resume_step": 3500,
+    "latest_step": 3566,
+    "steady_steps": 65,
+    "mean_seconds": 2.070087475043077,
+    "min_seconds": 1.9779882431030273,
+    "max_seconds": 2.498915910720825,
+    "all_steady_below_5": true,
+    "latest_loss": 0.03283360647037625,
+    "gpus": 8,
+    "micro_batch_size": 32,
+    "global_batch_size": 256,
+    "accumulation": 1,
+    "lr": 2e-06,
+    "max_steps": 10000,
+    "save_every": 1000,
+    "warmup_seconds": 20.199121475219727,
+    "running_at_validation": true
+  },
+  "execution": {
+    "loader_processes_per_rank": 4,
+    "decode_workers_per_process": 4,
+    "decoder_threads": 1,
+    "decoder_thread_type": "SLICE",
+    "prefetch_batches": 3,
+    "ddp": true,
+    "gradient_reduction": "FP32",
+    "fused_master_adamw": true,
+    "coalesced_parameter_broadcast": true,
+    "cpu_threads": 2,
+    "model_precision": "bfloat16",
+    "gradient_checkpointing": "unchanged"
+  },
+  "source_sha256": {
+    "xr1/tools/train_steam_policy.py": "06a8110e77c68cfc947d82df504887de6d6cc043686f8d5c89db788334ab2d2d",
+    "xr1/mibot/steam/policy_prefetch.py": "a635d611b0ff9573e5111c34b1decb9ed54644d07991d74a21bef93c532f48e0",
+    "xr1/mibot/steam/data.py": "9bd0700c45967b641d4a6a311993e66911c10317c08dd90c23907b870133899c",
+    "xr1/mibot/steam/runtime.py": "d1001974acf847be14a6ad936e6b77d0fa8efebb5c37ca861002a639c1379d27",
+    "xr1/mibot/steam/distributed.py": "83e161db6ebe7a34c42b65256d7fc9a713b7c6bc52bc784b2b3658e702e1384a",
+    "xr1/mibot/steam/optim.py": "4c67af7c7288943471293742224031fc6670614e616d7d52a23fc1f162008d9f",
+    "xr1/mibot/data/datasets/json_dataset.py": "a483743ae547e9e66b0273358c70ff4d5ff55b5c438008c7e836a7ca41f620b0",
+    "xr1/tests/test_steam_policy_speed.py": "b38844340167875266a44774dfc406cbf2bbc51db243ddcaf9a495d43391790f"
+  },
+  "final_training": {
+    "status": "complete",
+    "completed_at": "2026-10-27T18:18:15+0800",
+    "step": 10000,
+    "last_loss": 0.02076049556490034,
+    "last100_mean_loss": 0.01888111509149894,
+    "steady_iterations": 6499,
+    "steady_mean_seconds": 2.0757336394202435,
+    "steady_max_seconds": 3.012204885482788,
+    "final_checkpoint": "/data/wz/STEAM/runs/policy_8gpu_bs256_20261027/step_00010000_1793096209914869853/model.pt"
+  }
+}

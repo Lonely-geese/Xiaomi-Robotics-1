@@ -60,7 +60,7 @@ XR1 使用 BF16 模型和按参数分片的 FP32 master AdamW，支持本机 8×
 重新生成：
 
 ```bash
-cd /data/wz/Xiaomi-Robotics-1-steam
+cd /data/wz/Xiaomi-Robotics-1
 export PYTHONPATH="$PWD/xr1"
 export XR1_VIDEO_BACKEND=pyav
 PY=/data/wz/Xiaomi-Robotics-1/.venv/bin/python
@@ -70,6 +70,16 @@ $PY xr1/tools/prepare_steam_data.py \
 ```
 
 ## 三阶段训练
+
+当前与 6G 并行运行：6G 独占物理 GPU 0，STEAM 使用 GPU 1～4，GPU 5～7 留空。
+运行 `bash xr1/scripts/train_steam_4gpu.sh`，采用 `steam_critic_4gpu.json` / `steam_policy_4gpu.json`，
+每卡 16、全局 batch 64、无梯度累积，学习率和目标步数不变。
+critic 从七卡暂停时的最新状态显式迁移到 `/data/wz/STEAM/runs/critic_4gpu`；
+`migration.json` 记录来源和步数，保留原 logical rank 0～3 的优化器和随机状态。
+迁移只支持使用完整复制优化器的 critic，不适用于 policy 的分片优化器。
+模型逐张量核对一致，原八卡和七卡 checkpoint 保留；卡数和 batch 变化会改变后续训练轨迹。
+四卡流水线日志在 `/data/wz/STEAM/runs/pipeline_4gpu_20261025`，优势标签和 policy 输出也独立保存。
+标注阶段使用所选 GPU 列表的第一张卡（这里是物理 GPU 1），不会切回 GPU 0。
 
 STEAM 代码要求 Python 3.10+；本机已验证环境为共享的 XR1 Python 3.10 虚拟环境。
 
@@ -83,8 +93,9 @@ policy 默认 10,000 steps / global batch 128 / lr 2e-6，是 XR1 本机设置�
 
 ```bash
 # 1. STEAM temporal progress ensemble
-OMP_NUM_THREADS=4 $PY -m torch.distributed.run --standalone --nproc_per_node=8 \
-  xr1/tools/train_steam_critic.py --config xr1/configs/steam_critic.json
+OMP_NUM_THREADS=2 $PY -m torch.distributed.run --standalone --nproc_per_node=8 \
+  xr1/tools/train_steam_critic.py --config xr1/configs/steam_critic.json \
+  --decode-workers 4 --loader-processes 4 --prefetch-batches 3 --ddp --fused-optimizer
 
 # 2. Generate frame-level advantages; per-episode cache supports restarting.
 CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=4 $PY xr1/tools/label_steam_advantages.py \
@@ -115,6 +126,50 @@ bash xr1/scripts/train_steam_pipeline.sh
 
 默认阶段状态和日志位于 `/data/wz/STEAM/runs/pipeline_20261024`，可用 `STEAM_LOG_DIR` 改日志目录。
 训练失败时停止后续阶段；`status` 文件记录 critic/labeling/policy/complete/failed。
+critic 提前保存退出时会记录 `paused_critic`，不会自动开始标注。
+
+### Critic 加速与断点一致性
+
+加速选项只改变执行方式，保留三个独立成员、每成员全局 batch 128、每卡 16、
+原采样分布/时间标签、384 像素输入、可训练编码器、梯度检查点和 FP32 AdamW 状态。
+每个完整 step 仍依次更新全部三个成员，无梯度累积。
+
+- 原始 PairDataset 在主进程按原顺序抽样；解码/整理放到独立进程，每进程并行读取视频。
+- 每对图片共用一次视频打开，但保留两次独立 seek，避免开放 GOP 的解码差异。
+- worker 使用与原训练一致的并行图片缩放路径；单线程插值存在少量 uint8 舍入差异，未采用。
+- 预取使用独立 sampler RNG，只在消费批次时推进主 RNG。保存或重新启动不会跳过未消费的批次。
+- 每个成员分别使用 DDP，使梯度通信与反向计算重叠；融合 AdamW 沿用既有动量、步数和超参数。
+  通信归约顺序与融合计算可能有浮点舍入差异，不承诺优化前后权重逐位相等。
+
+执行参数不写入算法配置，因此可以直接恢复优化前的完整断点；启动日志 `execution` 会记录它们。
+不传加速选项仍可运行原同步路径。`--benchmark-steps N --profile` 使用真实随机训练数据和更新，
+只输出分段计时，不保存测试更新、不改 latest 指针。`--benchmark-static-data` 仅用于诊断计算上限，
+其数据重复结果不能作为端到端速度验收。速度验收需排除启动预取/内核预热，单独报告周期性保存耗时。
+
+并行加载需要 CPU 内存和共享内存。本机配置为每卡 4 个加载进程、每进程 4 个解码线程，
+队列深度 3；共享内存不足时可减少加载进程/队列深度，不需要改变训练 batch。
+
+### Policy 加速与 batch 迁移
+
+本次 8 卡、每卡 32 的完整配置保存在 `xr1/configs/steam_policy_8gpu_bs256.json`，
+可执行 `bash xr1/scripts/train_steam_policy_8gpu.sh`；输出目录已有完整检查点时自动恢复。
+路径可通过 `STEAM_POLICY_CONFIG` 指向自定义配置，Python 可用 `STEAM_PYTHON` 指定。
+从旧 batch 的断点迁移时，在命令后追加 `--resume /path/to/checkpoint --allow-batch-change`。
+实测速度、输入一致性检查和最终 10000 步训练记录见 `steam_policy_speed_validation.json`。
+
+Policy 支持 `--loader-processes 4 --decode-workers 4 --prefetch-batches 3
+--ddp --fused-optimizer --coalesced-broadcast`。加载进程并行准备真实随机样本，
+使用单线程视频解码器，避免多路 PyAV 解码与 FFmpeg 线程回调互相等待。
+图像处理、动作目标、优势条件概率和训练精度保持不变；DDP 使用 FP32 梯度归约。
+预取的样本索引、提示选择和 CFG 随机数可由已消费的 sampler 状态恢复，
+未消费队列不推进检查点状态。执行路径切换、batch 调整和归约顺序变化不保证与旧训练逐位一致。
+
+`--allow-batch-change` 仅允许恢复时修改 `micro_batch_size`、`global_batch_size` 和
+`output`，其余算法配置和 GPU 数仍须一致。模型、FP32 master 权重、Adam 动量及步数均保留，
+不会重置优化器或自动缩放学习率。每卡 32、8 卡、全局 256 对应一次实际前后向，无梯度累积。
+
+`--benchmark-steps N --profile` 从完整检查点执行真实更新，输出数据等待、计算与更新耗时，
+不保存测试更新，也不修改 latest 指针。性能统计应排除启动预取/预热，并说明保存检查点的额外开销。
 
 ## CFG 推理与验证
 

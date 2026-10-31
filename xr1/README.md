@@ -6,6 +6,8 @@ All commands below run from the `xr1/` directory.
 
 For STEAM offline reinforcement learning (temporal-progress ensemble, advantage labeling, and XR1 CFG policy training), see [the STEAM guide](docs/steam.md).
 
+For USB **BEE** adaptation, demonstration-based correction prewarming, offline replay training, and inference, see [the USB BEE guide](../docs/usb_bee.rst). The frozen Xiaomi/RLToken interface and its Stage 1 training are documented in [the USB RLToken guide](../docs/usb_rlt.rst). Configure dataset, checkpoint, normalization, and local VLM paths in `configs/usb_bee.yaml` and its referenced Stage 1 config before running on a different machine. Demonstration prewarming trains only the correction model; actor/critic training requires collected transitions with rewards and intervention labels.
+
 ---
 
 ## Installation

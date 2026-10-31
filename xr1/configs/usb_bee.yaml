@@ -1,0 +1,21 @@
+# Offline adaptation: no robot connection and no implicit online training.
+stage1_config: /data/wz/Xiaomi-Robotics-1/xr1/configs/usb_rlt_8gpu.yaml
+stage1_checkpoint: /data/wz/usb/rlt_runs/stage1_joint_8gpu_bs256_20261029_235047/latest.pt
+seed: 42
+bee:
+  z_dim: 2048
+  proprio_dim: 16
+  chunk_len: 10
+  action_dim: 7
+  editable_dims: [0, 1, 2, 3, 4, 5]
+  hidden: 512
+  gamma: 0.99
+  tau: 0.005
+  lr: 0.0003
+  dual_lr: 0.000003
+  eta: 1.0
+  epsilon: 0.3
+  variance_floor: 0.02
+  reference_dropout: 0.5
+  policy_delay: 2
+  grad_clip: 1.0

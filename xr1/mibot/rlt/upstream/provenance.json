@@ -1,0 +1,39 @@
+{
+  "repository": "https://github.com/RLinf/RLinf",
+  "commit": "30e0236981c6a1dc19202de64116834c12673828",
+  "changes": "Only absolute Python imports rewritten to mibot.rlt.upstream; algorithms unchanged.",
+  "files": {
+    "base_policy.py": {
+      "source_sha256": "a673b325688adf4f88c40052b59278fcb5aa095410ca44d7a81ac2a61b4a203c",
+      "vendored_sha256": "a673b325688adf4f88c40052b59278fcb5aa095410ca44d7a81ac2a61b4a203c"
+    },
+    "modules/rlt_token_transformer.py": {
+      "source_sha256": "d72364f58436af345164d9bb574d7f7edf054e5c9d1e94d367ae075b53779332",
+      "vendored_sha256": "d72364f58436af345164d9bb574d7f7edf054e5c9d1e94d367ae075b53779332"
+    },
+    "modules/q_head.py": {
+      "source_sha256": "b213e8fa33664e1d2721819983e577d43c2eaf206f760fcd9b2c26d7a6f98929",
+      "vendored_sha256": "b213e8fa33664e1d2721819983e577d43c2eaf206f760fcd9b2c26d7a6f98929"
+    },
+    "modules/value_head.py": {
+      "source_sha256": "82636d45ec176cc4a73886afe400d0c0f195a1f7850382be59c3ee1a4ca4e9db",
+      "vendored_sha256": "82636d45ec176cc4a73886afe400d0c0f195a1f7850382be59c3ee1a4ca4e9db"
+    },
+    "modules/utils.py": {
+      "source_sha256": "35dcde32bd1c011a95cdfcaabf87a5dc9fb1bf4983d6e8941c85caa36ed459a8",
+      "vendored_sha256": "35dcde32bd1c011a95cdfcaabf87a5dc9fb1bf4983d6e8941c85caa36ed459a8"
+    },
+    "modules/batch_renorm.py": {
+      "source_sha256": "289ab4a70344fad528d51169f16a1e27e235f356bff9d0ddf76f026ff8396308",
+      "vendored_sha256": "289ab4a70344fad528d51169f16a1e27e235f356bff9d0ddf76f026ff8396308"
+    },
+    "mlp_policy/mlp_policy.py": {
+      "source_sha256": "2d94f7cd9672a0065ced802d77e3fc61c1b87cf45b1fbd278f79baa370fef016",
+      "vendored_sha256": "ae7774f04d3d839a439642f7a69f4f5f3d70d680b9298babd190a63d04fb6578"
+    },
+    "mlp_policy/rlt_mlp_policy.py": {
+      "source_sha256": "052860f9e9b0ae640adeb921ab82a2e63ae7d6deaf568d14e091897d5e45e29e",
+      "vendored_sha256": "e68f7e14738954317e67b29fb4653cc39127b966cc108d7c9b4543b4ecd80a23"
+    }
+  }
+}

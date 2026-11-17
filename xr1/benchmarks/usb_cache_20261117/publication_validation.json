@@ -1,0 +1,46 @@
+{
+  "input_cpu_validation": {
+    "passed": true,
+    "gripper_repair_version": 2,
+    "manifest_sha256": "2a9b06b0a88e1233bd97df34bb06143e4705a46a0e2eddb18e9520535a340cc4",
+    "unique_samples_per_gpu": 32,
+    "world_size": 8,
+    "global_batch_size": 256,
+    "gradient_accumulation_steps": 1,
+    "train_frames": 295704,
+    "validation_samples": 128,
+    "steps_per_epoch": 1155,
+    "total_steps": 23100,
+    "complete_global_batches": true,
+    "no_cross_rank_duplicates": true,
+    "discarded_tail_frames": 24,
+    "token_packing_exact": true,
+    "pixel_preprocessing_cpu_exact": true,
+    "native_action_targets_verified": true,
+    "packed_tokens": 9955,
+    "per_image_grid": [
+      1,
+      16,
+      16
+    ],
+    "source_pose_audited": true
+  },
+  "rgb_cache_validation": {
+    "passed": true,
+    "frames": 412,
+    "cameras": 3,
+    "pixel_exact": true
+  },
+  "production_training_ast_unchanged": {
+    "USB1175Dataset": true,
+    "CachedCollate": true,
+    "USB1175DataModule": true,
+    "USB1175Runner": true,
+    "configuration": true,
+    "Record": true
+  },
+  "syntax_checks_passed": true,
+  "cli_help_checks_passed": true,
+  "gpu_timing_reference": "summary.json",
+  "gpu_timing_recipe": "Recorded production C0; this publication preserves the runner, callback, configuration, dataset, collate and loader implementations. New standalone cache generation and relative-path handling were CPU-verified."
+}

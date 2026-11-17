@@ -181,6 +181,19 @@ outputs/
 .setup/
 .queue/
 models/
+# Generated accelerated-training data, checkpoints and local supervisors
+prepared/
+prepared_gripper_v2/
+runs/
+exports/
+queue/
+queue_gripper_v2/
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.partial*
 xr1/pretrained_ckpt/
 xr1/data/ethernet_*/
 xr1/data/Data_0904_clean_network_xr1/

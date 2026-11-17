@@ -1,0 +1,182 @@
+USB 1175: verified RGB-cache accelerated full fine-tuning
+======================================================
+
+This entry preserves the completed USB gripper-v2 experiment: 8 GPUs, 32 unique
+observations per GPU, global batch 256, accumulation 1, all 5,113,222,656 model
+parameters trainable, native asynchronous training, four noise repeats, horizon
+30. It supervises the seven left end-effector/gripper action dimensions.
+
+Files
+-----
+tools/cache_usb_rgb.py                 Independent RGB cache builder.
+mibot/usb1175.py                       mmap dataset, cached token/position packing,
+                                      pinned prefetch and GPU image processing.
+tools/verify_usb1175_gripper_v2.py      Exact input/target checks and batch proof.
+tools/train_usb1175_gripper_v2.py       Validated benchmark and 20-epoch trainer.
+tools/download_official.py             Pinned official full-checkpoint download.
+mibot/gripper_contract_v2.py           Training/inference gripper anchor contract.
+benchmarks/usb_cache_20261117/          Recorded eight-GPU cumulative timings.
+
+RGB format and crops
+-------------------
+Each trajectory/camera has an uncompressed uint8 NPY shaped [T,256,256,3], RGB
+channel order, values 0..255. np.load(..., mmap_mode='r') maps the file; Linux
+can share hot file pages among workers. This does not preload the entire dataset
+or cache trainable visual features. Batch image normalization runs on the GPU.
+
+For the 848x480 source videos, the exact measured pixel recipe is:
+  ego:         original full head frame -> ffmpeg bicubic 256x256;
+  wrist_left:  original left crop 512x384 at x168,y48 -> bicubic 256x256;
+  wrist_right: original left crop 256x256 at x296,y112 -> bicubic 256x256.
+The two wrist crops are independent views of the original left video.
+The crop-video stage uses lossless libx264 qp=0, yuv420p before resizing, matching
+the production preparation exactly. ffmpeg with libx264 and PyAV are required.
+
+An inventory is a JSON object with a parents list, for example:
+{
+  "parents": [{
+    "uid": "episode_000000", "length": 412,
+    "videos": ["head.mp4", "left.mp4"],
+    "split": "train", "source_session": "recording_session_1"
+  }]
+}
+Video paths can be absolute or relative to the inventory. Build into a separate
+directory so existing production caches and inventories are preserved:
+
+  python xr1/tools/cache_usb_rgb.py \
+    --inventory /path/source_inventory.json --output /path/usb_rgb --workers 32
+
+The output source_inventory.json retains the input metadata and adds cameras:
+three absolute NPY paths per uid. Use those paths in the prepared manifest below.
+The builder verifies source hashes, frame counts, dtype and shape, writes NPYs
+atomically and records RGB hashes. A different existing cache is never silently
+accepted or overwritten. No Phoenix-MWA installation is required.
+
+Prepared USB gripper-v2 inputs
+-----------------------------
+This is the exact 1175-episode profile, not a raw arbitrary-dataset converter.
+Supply the already prepared/repaired labels; the cache builder does not repair
+gripper values or create new labels. Do not feed the original constant-0.09-m
+labels into this experiment. Repair confidence masks remain part of supervision.
+The pseudo-label contract is not evidence of real-robot task success.
+
+XR1_USB_PREPARED_DIR contains:
+  manifest.json            rows and a fixed 128-observation validation_panel;
+  normalize.json           per-horizon mean/std [30,60], q01/q99 [1,60];
+  gripper_contract.json    calibrated closed/open endpoints and fixed anchor;
+  templates.pt            cached templates for actual lengths 1..30;
+  input_verified.json     produced by the verifier below, tied to manifest SHA.
+
+Each row supplies uid, split, source_session, length, prompt, cameras (3 NPY
+paths), actions (NPY [T,30,7]), states (NPY [T,60]), gripper_mask (NPY [T,30]),
+and native (NPZ of the corresponding native XR1 proprio/action arrays).
+Array paths may be absolute or relative to XR1_USB_PREPARED_DIR. Optional
+gripper_labels NPZs enable all-episode absolute-command checks. Existing source
+identities, session split and the source's three-frame action shift are retained;
+no additional target shift is applied. Image random augmentation is disabled.
+
+Split: train 1055 episodes / 295704 frames, validation 120 episodes / 35208
+frames from held-out sessions. Each epoch has 1155 complete global updates;
+24 shuffled tail observations are omitted to keep every update at batch 256.
+
+Gripper convention: proprio slot 7 is fixed at 0.09 m before q01/q99 scaling.
+After undoing action normalization, absolute desired opening is action[6]+0.09 m,
+clipped to the endpoints in gripper_contract.json. Do not add feedback opening.
+Unknown future-tail gripper targets are masked. See gripper_contract_v2.py.
+
+Run
+---
+Install the dependencies in assets/requirements.txt plus the matching
+FlashAttention2 build for the installed Torch/CUDA version, as in the main XR1
+setup. Set paths to your own data and offline Qwen config/tokenizer assets:
+
+  export PYTHONPATH="$PWD/xr1${PYTHONPATH:+:$PYTHONPATH}"
+  export XR1_USB_PREPARED_DIR=/path/prepared_gripper_v2
+  export XR1_VLM_PATH=/path/Qwen3-VL-4B-Instruct
+  export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+
+The complete released checkpoint includes VLM tensors; XR1_VLM_PATH only needs
+the corresponding config, processor and tokenizer files. Download/verify the
+full checkpoint into models/official/model_states.pt (HF mirror, no proxies):
+
+  python xr1/tools/download_official.py
+
+Pinned revision: ee21d524b5c52ac961d941e1bc7d6d92836c3d5e
+SHA256: 94d55a79122050a654b379664b644e874ff90d64ccd30a6a633f816555bcecf7
+An existing correct file is verified rather than downloaded again.
+
+Check native targets, confidence masks, exact CPU image/token processing and
+the nonduplicate 8x32 sampler; templates.pt is built if absent:
+
+  python xr1/tools/verify_usb1175_gripper_v2.py
+
+Optional --audit-source additionally compares all pose/state values to the
+original prepared dataset named in manifest.source_prepared. It requires those
+original arrays and unchanged original RGB paths. Neither verification mode
+changes any image/label arrays; input_verified.json is its output receipt.
+
+Run a 100-update validation/checkpoint benchmark, then a fresh official-weight
+20-epoch training run. Use distinct output directories:
+
+  torchrun --standalone --nproc_per_node=8 xr1/tools/train_usb1175_gripper_v2.py \
+    --benchmark --output runs/usb_fast_benchmark --workers 4
+  torchrun --standalone --nproc_per_node=8 xr1/tools/train_usb1175_gripper_v2.py \
+    --output runs/usb_fast_20ep --workers 4
+
+Default: ZeRO-2, buckets 50M, overlap communication, fused torch AdamW, BF16,
+official FA2/Liger/FFN+vision checkpoints, no DiT checkpoint. LR warms 693 steps
+from 5e-7 to 2e-5, then cosine-decays to 5e-6 over 23100 updates. --stage 3 and
+--dit-checkpoint are explicit memory tradeoffs and are not the measured default.
+All batch-size, full-finetuning and branch-gradient invariants are checked.
+
+Each epoch validates, keeps its inference weights, and atomically replaces the
+latest complete resume state (optimizer, scheduler and loop state). To resume:
+
+  torchrun --standalone --nproc_per_node=8 xr1/tools/train_usb1175_gripper_v2.py \
+    --output runs/usb_fast_20ep --resume runs/usb_fast_20ep/resume --workers 4
+
+The default 20-epoch schedule and 8x32 recipe are fixed in this experiment entry.
+Use a new output directory for a fresh run. Dataset, norm, contract, verification
+receipts, local CSV metrics and initialization metadata are copied into each run.
+No weights, dataset arrays, private credentials or training logs are in Git.
+
+Measured cumulative rollback (2026-11-17, 8 H100 80GB GPUs)
+--------------------------------------------------------
+Fixed official initialization, sample order/seed, crops, all parameters trainable,
+global batch 256 and accumulation 1. Each stage has 10 warmup + 40 measured
+optimizer steps, repeated twice. Timings include data waits and synchronize
+across ranks; initialization, validation and serialization are excluded.
+
+Stage  Cumulative change                         Mean s/update  Vs previous
+C0     Complete optimized USB path                  1.6438          --
+C1     GPU image processing -> CPU workers          1.7030        +3.60%
+C2     Remove token/position templates              1.6906        -0.73%
+C3     Remove RGB cache; decode videos online       8.0918      +378.63%
+C4     Restore loader workers 4 -> 8                4.4706       -44.75%
+C5     Restore prefetch 2 -> 4                      4.3538        -2.61%
+C6     Restore communication buckets 50M -> 500M     4.4170        +1.45%
+C7     Restore DeepSpeed FusedAdam                  4.4590        +0.95%
+
+Positive percentages mean slower. These are adjacent cumulative changes,
+not independent gains that can be added. Small differences overlap run-to-run
+variation. RGB caching is the largest measured contributor. C0 vs C7 gives
+2.713x throughput (+171.3%) and 63.1% less time/update under these conditions.
+
+The comparable official baseline retains necessary USB adapters, masks/crops,
+the same complete-batch sampler and full-finetuning setting, including unfrozen
+input embeddings (upstream freezes those by default). It is not an unchanged
+upstream run. Native BF16, FA2, Liger, packed sequences, ZeRO2 overlap and FFN/
+vision checkpoints remain enabled throughout; they are not our extra gains.
+Online decoding uses two-thread PyAV to preserve exact cached-input pixels.
+PYAV_LOGGING=off / restore_default_callback avoids the documented FFmpeg-thread
+Python-GIL logging deadlock. Failed/one-thread diagnostic trials are excluded.
+The official FusedAdam comparison used a separate extension build and a native
+GPU probe to accommodate the local CUDA toolkit. See summary.json for raw means,
+repeat ranges, memory and input checks. The source production trainer itself
+completed the original 20-epoch USB run at about 1.50 s/update; do not mix that
+asynchronous logging estimate with the synchronized cumulative timings above.
+
+Upstream reference:
+https://github.com/XiaomiRobotics/Xiaomi-Robotics-1/tree/main/xr1
+PyAV logging caveat:
+https://pyav.org/docs/stable/overview/caveats.html

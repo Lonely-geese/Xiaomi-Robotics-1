@@ -219,3 +219,9 @@ tmux attach -t xr1_left_queue
 双卡 Lightning/ZeRO-2 训练→验证→测试和 SwanLab 在线上传、pip check。
 完整 checkpoint 已严格加载且全参数可训练；完整 5B 的 GPU 更新仍需等待 8 卡空闲后短跑确认。
 验证记录位于 `../.setup/left_training_verified.json`。
+
+
+## USB RGB 缓存加速训练
+
+已验证的 8 卡 × 每卡 32、全参数异步训练入口、缓存生成和累计测速结果见
+[`docs/usb_accelerated_training.txt`](docs/usb_accelerated_training.txt)。

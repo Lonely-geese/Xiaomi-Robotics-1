@@ -13,6 +13,7 @@
     6
   ],
   "sample_stride": 1,
+  "async_train": true,
   "unconditional_prob": 0.1,
   "seed": 0,
   "micro_batch_size": 16,

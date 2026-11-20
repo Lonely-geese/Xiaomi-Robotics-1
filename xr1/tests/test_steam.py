@@ -159,6 +159,7 @@ def test_strict_quantile_ties_and_cfg_routes():
 class FakeXR1(nn.Module):
     def __init__(self):
         super().__init__()
+        self.async_train = False
         self.sink = nn.Embedding(1, 1)
         for name in [
             "state_projector_choice",
@@ -170,12 +171,14 @@ class FakeXR1(nn.Module):
         self.beta = torch.distributions.Beta(1.5, 1.0)
         self.coefficient = nn.Parameter(torch.tensor(2.0))
 
-    def prepare_flow_condition(self, observation, action_mask):
-        return {"factor": observation["factor"]}
+    def prepare_flow_condition(self, observation, action_mask, prefix_length=0):
+        return {"factor": observation["factor"], "prefix_length": prefix_length}
 
-    def dit_forward(self, x, time, factor):
+    def dit_forward(self, x, time, factor, prefix_length=0):
         assert time.shape == (len(x), 1, 1)
-        return torch.ones_like(x) * factor * self.coefficient
+        velocity = torch.ones_like(x) * factor * self.coefficient
+        velocity[:, :prefix_length] = 0
+        return velocity
 
 
 def test_flow_loss_valid_dims_and_gradient():
@@ -278,3 +281,28 @@ def test_smoke_labels_are_rejected_by_production_dataset(tmp_path):
     )
     with pytest.raises(ValueError, match="smoke labels"):
         PolicyDataset(manifest, labels)
+
+
+@pytest.mark.parametrize("length", [1, 6])
+def test_async_training_and_cfg_preserve_queue(length):
+    policy = SteamPolicy(FakeXR1())
+    policy.model.async_train = True
+    action = torch.full((2, 30, 60), 3.0)
+    action[:, :length] = 11
+    mask = torch.ones_like(action)
+    captured = []
+    original = policy.model.dit_forward
+    def capture(x, time, **kwargs):
+        captured.append(x.clone())
+        return original(x, time, **kwargs)
+    policy.model.dit_forward = capture
+    loss = policy({"factor": 1}, action, mask, noise=torch.zeros_like(action),
+                  time=torch.zeros(2), prefix_length=length)
+    assert loss.item() == 1
+    loss.backward()
+    prefix = action[:, :length]
+    out = policy.eval().generate({"factor": 1}, {"factor": 3}, mask, guidance_scale=2,
+                                 noise=torch.zeros_like(action), prefix=prefix)
+    assert torch.equal(out[:, :length], prefix)
+    assert all(torch.equal(x[:, :length], prefix) for x in captured)
+    assert torch.allclose(out[:, length:], torch.full_like(out[:, length:], 10))

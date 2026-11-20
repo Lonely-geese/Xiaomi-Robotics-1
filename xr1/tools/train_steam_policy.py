@@ -155,7 +155,7 @@ def main():
         duration = torch.tensor(seconds, device=device)
         if world_size() > 1:
             torch.distributed.all_reduce(duration, op=torch.distributed.ReduceOp.MAX)
-        log({"step": step, "seconds": float(duration), **metrics,
+        log({"step": step, "rank0_prefix_length": model.last_prefix_length, "seconds": float(duration), **metrics,
              **(mean_metrics(timings, device) if a.profile else {})})
         stop = stopping(device)
         if not a.benchmark_steps and (step % cfg["save_every"] == 0 or step == end or stop):

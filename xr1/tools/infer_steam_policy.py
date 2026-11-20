@@ -20,6 +20,7 @@ def main():
     p.add_argument("--guidance-scale", type=float, default=1.0)
     p.add_argument("--num-steps", type=int, default=5)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--prefix", type=Path, help="Normalized queued actions as a [0..6, 60] .npy array")
     p.add_argument("--output", type=Path, required=True)
     a = p.parse_args()
     torch.manual_seed(a.seed)
@@ -65,7 +66,8 @@ def main():
     model = model.to(device="cuda", dtype=torch.bfloat16).eval()
     del saved
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-        action = model.generate(uncond, positive, mask, a.guidance_scale, a.num_steps)
+        prefix = None if a.prefix is None else torch.as_tensor(np.load(a.prefix, allow_pickle=False), device="cuda").unsqueeze(0)
+        action = model.generate(uncond, positive, mask, a.guidance_scale, a.num_steps, prefix=prefix)
     if not torch.isfinite(action).all():
         raise FloatingPointError("nonfinite generated action")
     a.output.parent.mkdir(parents=True, exist_ok=True)

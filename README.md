@@ -1,4 +1,12 @@
-本分支的 RECAP 真机数采入口见 [rollout 使用说明](rollout/README.md)。
+## USB 机器人工作流
+
+| 模块 | 用途 | 入口 |
+| --- | --- | --- |
+| [rollout](rollout/README.md) | 真机推理服务、VR 控制、人工接管和数据采集 | `rollout/scripts/` |
+| [rl](rl/README.md) | 训练价值网络、生成逐帧优势标签、继续微调策略 | `python -m rl --config rl/configs/steam.json` |
+| [xr1](xr1) | 两个方法复用的模型、数据加载器和训练程序 | 由 RL 配置入口调用 |
+
+将配置文件换为 `rl/configs/recap.json` 即运行 RECAP。首次运行先按 RL 说明填写本机的数据和权重路径。真机端沿用现有服务和操作手册。
 
 <div align="center">
 

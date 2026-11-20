@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-24",
+  "branch": "steam",
+  "base_commit": "553ba99",
+  "upstream_commit": "30e0236981c6a1dc19202de64116834c12673828",
+  "tests": {
+    "command": "PYTHONPATH=xr1 python -m pytest -q xr1/tests",
+    "passed": 31,
+    "ruff": "passed"
+  },
+  "dataset_audit": {
+    "episodes": 2341,
+    "splits": {
+      "train": 2205,
+      "validation": 136
+    },
+    "pools": {
+      "sft": 1596,
+      "rollout": 745
+    },
+    "categories": {
+      "LFD": 1596,
+      "RECAP_UNKNOWN": 170,
+      "RECAP_SUCCESS": 575
+    },
+    "frames": 481864,
+    "censored_frames": 20570,
+    "critic_pair_anchors": 479523,
+    "videos_checked": 7023,
+    "advantage_labels": "not fabricated: generate with a trained STEAM ensemble",
+    "assets": "existing videos and aligned action arrays referenced without modification",
+    "manifest_sha256": "0a42c6b93e9564da85ec4358ba964db1f809b811aa20e66173455d3318616175"
+  },
+  "critic": {
+    "members": 3,
+    "bins": 32,
+    "gpu_training_and_resume_steps": [
+      1,
+      2
+    ],
+    "resumed_losses": [
+      3.5885987281799316,
+      3.5443358421325684,
+      3.42529296875
+    ]
+  },
+  "labeling": {
+    "smoke_only": true,
+    "rows": 16,
+    "coverage": "complete",
+    "threshold_fit_split": "train"
+  },
+  "policy_resume": {
+    "world_size": 8,
+    "restored_step": 1,
+    "next_step": 2,
+    "loss": 0.04054369148798287,
+    "optimizer_shards_verified": 8,
+    "fp32_masters": true,
+    "all_Adam_steps": 2
+  },
+  "policy_batch128": {
+    "world_size": 8,
+    "micro_batch_size": 16,
+    "global_batch_size": 128,
+    "gradient_accumulation_steps": 1,
+    "completed_steps": 1,
+    "loss": 0.12660563178360462,
+    "gradient_norm": 11.47111701965332,
+    "step_seconds": 5.9368906817398965,
+    "observed_memory_per_gpu_GiB": "about 38",
+    "checkpoint_saved": true
+  },
+  "inference": {
+    "guidance_scale": 1.5,
+    "shape": [
+      1,
+      30,
+      60
+    ],
+    "finite": true,
+    "inactive_action_dimensions_zero": true
+  },
+  "limitations": [
+    "Smoke data has only four censored episodes with four frames each; this validates code, not task success.",
+    "No task success-rate claim is made; production training is separate from smoke tests.",
+    "Critic uses locally available Gemma3-270m-it; runtime uses synchronous data parallelism rather than RLinf Ray/FSDP.",
+    "Both production trainers use user-requested micro batch 16, global batch 128 on 8 GPUs, without accumulation."
+  ],
+  "artifacts": "/data/wz/STEAM/smoke: logs/configs/smoke labels/CFG prediction. Temporary checkpoint generations removed after verification."
+}

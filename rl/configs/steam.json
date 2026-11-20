@@ -1,0 +1,22 @@
+{
+  "method": "steam",
+  "run_dir": "runs/steam-usb",
+  "gpus": 8,
+  "manifest": "data/steam/manifest.json",
+  "value": {
+    "vision_path": "models/siglip-so400m-patch14-384",
+    "language_path": "models/gemma-3-270m-it",
+    "max_steps": 16000
+  },
+  "label": {
+    "batch_size": 32,
+    "rollout_fraction": 0.3,
+    "expert_fraction": 0.8
+  },
+  "policy": {
+    "actor_vlm_path": "models/Qwen3-VL-4B-Instruct",
+    "sft_checkpoint": "weights/baseline_future3.pt",
+    "async_train": true,
+    "max_steps": 10000
+  }
+}

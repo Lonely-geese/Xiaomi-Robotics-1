@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-10-25T12:09:22.089295+08:00",
+  "checkpoint_step": 1242,
+  "checkpoint": "/data/wz/STEAM/runs/critic/step_00001242_1792900237620043484/model.pt",
+  "source_branch": "steam",
+  "source_directory": "/data/wz/Xiaomi-Robotics-1",
+  "baseline_mean_seconds": 44.424649535845965,
+  "benchmark": {
+    "log": "/data/wz/STEAM/optimization_20261025/process4_profile.log",
+    "total_steps": 35,
+    "startup_step_seconds": 23.769184951670468,
+    "steady_steps": 34,
+    "mean_seconds": 4.368687812718289,
+    "median_seconds": 4.311243994394317,
+    "max_seconds": 5.927874662913382,
+    "min_seconds": 3.591511122416705,
+    "all_steady_steps_below_6": true,
+    "includes": "random real data loading, H2D, forward/backward and optimizer updates for all 3 members, distributed metric synchronization",
+    "excludes": "model/worker startup, first-step prefill/kernel warmup, periodic checkpoint writes"
+  },
+  "training": {
+    "gpus": 8,
+    "micro_batch_size": 16,
+    "global_batch_per_member": 128,
+    "accumulation": 1,
+    "members": 3,
+    "decode_workers_per_loader": 4,
+    "loader_processes_per_rank": 4,
+    "prefetch_batches": 3,
+    "ddp": true,
+    "fused_adamw": true,
+    "cpu_threads": 2,
+    "learning_rate": 5e-05,
+    "max_steps": 16000
+  },
+  "validation": {
+    "pytest": "35 passed in 6.23s",
+    "ruff": "passed",
+    "bash_syntax": "passed",
+    "git_diff_check": "passed",
+    "input_parity": "3 real batches x 16 pairs x 6 images; all collated tensors and sampler RNG exactly equal to reference",
+    "input_parity_log": "/data/wz/STEAM/optimization_20261025/verify_loader.log",
+    "sampling_resume_test": "pending batches do not advance checkpoint RNG; restarted sampler matches next batch",
+    "caveat": "DDP reduction order and fused FP32 AdamW can change floating-point rounding; no bitwise parameter trajectory guarantee"
+  },
+  "production": {
+    "pipeline_pid": 2149407,
+    "log": "/data/wz/STEAM/runs/pipeline_20261024/critic.log",
+    "status": "critic",
+    "latest_step": 1258,
+    "completed_steps_since_resume": 16,
+    "steady_steps": 15,
+    "steady_mean_seconds": 4.375430670442681,
+    "steady_max_seconds": 5.670563051942736,
+    "all_observed_steady_steps_below_6": true,
+    "log_age_seconds": 1.2037460803985596,
+    "process_alive": true
+  },
+  "source_sha256": {
+    "xr1/mibot/steam/prefetch.py": "2da834d9f84d586a142811d9e4e46c67d9ed5cc554b074a6b8289dc06d4ef950",
+    "xr1/mibot/steam/data.py": "9100d15d1e1b3a9bfa06966c125673a2c738a3b830db19dadbf4615c6b82f3a1",
+    "xr1/mibot/steam/runtime.py": "343bb557f23caadb16ecde6751f8a64f56c33f9fc971ed79afd44c37782b2802",
+    "xr1/tools/train_steam_critic.py": "d07e9d3faa3437a17b0bbb85b977c29b4aba2fabeedc5db3e76b81e7fd017b9b",
+    "xr1/scripts/train_steam_pipeline.sh": "d57d04d33b59176a7c515f94f7a7d0de2e6f1fe55b7dc5390016b27fb37bd386",
+    "xr1/tests/test_steam_prefetch.py": "abc57161df68d51dd7a7977e0b7e7bbe64da7ae651c35f1e294e0eb4ad125242"
+  }
+}

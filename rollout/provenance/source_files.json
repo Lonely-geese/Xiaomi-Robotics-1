@@ -1,0 +1,487 @@
+{
+  "control/probe_hal_latency.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/probe_hal_latency.py",
+    "sha256": "3920bc30c773bfdf14adc986ee771e8cd390349e546a62e9c1304b000e73f517",
+    "bytes": 1768
+  },
+  "control/verify_observation.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/verify_observation.py",
+    "sha256": "9ada2228f4b786a8656347c9140aef0fbd95ef16af923fc8eacc6eda1ad20d33",
+    "bytes": 2493
+  },
+  "control/gripper_snap.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/gripper_snap.py",
+    "sha256": "9f38a3335850e2eeb3a4e4dc658f4d121d649901f8cfc6fc12454808378d72b1",
+    "bytes": 2215
+  },
+  "control/test_gripper_snap.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/test_gripper_snap.py",
+    "sha256": "934a3a746a5d5293924cc2cc25c33aed25cab204e9dc06751567de234eec083a",
+    "bytes": 3348
+  },
+  "control/audit_recordings.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/audit_recordings.py",
+    "sha256": "12b878fcf056d8505f62b06f1a18a7a669741466fe8b81ec79ed8f854ad4efa0",
+    "bytes": 7722
+  },
+  "control/manual_gripper.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/manual_gripper.py",
+    "sha256": "17c2aeced419b6a260446a2b99625ee5aa67e8b980004ce621f3cffdbd97ecd2",
+    "bytes": 4802
+  },
+  "control/check_hal_feedback.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/check_hal_feedback.py",
+    "sha256": "4fbd3daeef1efee4597344686f4db27899150445683a660ede00243f5009c6e6",
+    "bytes": 997
+  },
+  "control/test_recording.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/test_recording.py",
+    "sha256": "6c949770ab6218b587131339da90ee03875cfb5498ab648c523bcaf982eed8bb",
+    "bytes": 2318
+  },
+  "control/verify_recording.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/verify_recording.py",
+    "sha256": "46b00ab064212cc2bcc8c72526cebe02bb9a07d7a5de660b239d9338801dd43a",
+    "bytes": 2654
+  },
+  "control/diagnose_vr.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/diagnose_vr.py",
+    "sha256": "428e12e62fbdf20a3c7459df485d105d8500edb58099cee1fb7b4a5f3df8dafd",
+    "bytes": 1571
+  },
+  "control/check_ros_camera_isolation.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/check_ros_camera_isolation.py",
+    "sha256": "de779420a128c65cad5c670b44f01b89a94bb54cbcc1d489fe923b1ec15506a7",
+    "bytes": 795
+  },
+  "control/recording.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/recording.py",
+    "sha256": "4fe0a9668faedef42adb3f083173e8dd76fdc92efa4260aa369602bc8174dc28",
+    "bytes": 5014
+  },
+  "control/vr_observer.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/vr_observer.py",
+    "sha256": "8112ee097ae40b8a5ede8d063bef3777287029389057485a9511e0142205ce4f",
+    "bytes": 2008
+  },
+  "control/test_identity.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/test_identity.py",
+    "sha256": "2a629ffa4df93a809bcae15c7479e38c087e974a370503920c54f667712cdbe5",
+    "bytes": 1291
+  },
+  "control/run_robot.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/backups/before_strict_morning_restore_20261112_225111/run_robot.py",
+    "sha256": "8fee7f9ca164b196e0a387bcc00472bde21bca814cfe7986e7c2df0975f894cb",
+    "bytes": 2728
+  },
+  "control/test_control_timing.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/test_control_timing.py",
+    "sha256": "1963d7705d36c642621710b77cf10ebcc6577ce0eff8dafe63883feb6d47ffd1",
+    "bytes": 2290
+  },
+  "control/serve_robot_adapter.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/serve_robot_adapter.py",
+    "sha256": "135316a211dfa8b90684994de3bdac6014cd34e36d63be211c510fa586707ef1",
+    "bytes": 4596
+  },
+  "control/test_manual_gripper.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/test_manual_gripper.py",
+    "sha256": "42095b5a8987b39a1444bb3bd94292dc9eee0c9012f98472a8f9bfdedb947dea",
+    "bytes": 6014
+  },
+  "control/common.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/common.py",
+    "sha256": "e6119927f49c99002cef09a379c05e62436fa10180f6bd11ecf86bef13260de8",
+    "bytes": 5101
+  },
+  "control/control_timing.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/control_timing.py",
+    "sha256": "354dabd229b69c84561c18ae641971a371de917755a19060dd4567d87f10d4dd",
+    "bytes": 2967
+  },
+  "control/recording_vendor/record_xr1_async_rollout.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/recording_vendor/record_xr1_async_rollout.py",
+    "sha256": "341f26c52d76bb06240c6b9ea35e0fd35df6cde99422406a975bd646e5e38ef9",
+    "bytes": 13696
+  },
+  "control/recording_vendor/lerobot_v21_writer.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/recording_vendor/lerobot_v21_writer.py",
+    "sha256": "bddc6d7caa1d24ed24ea7d4217c550097d9859474ebeadc4a43aaea098363961",
+    "bytes": 17793
+  },
+  "control/recording_vendor/hal_frame_recorder.py": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/recording_vendor/hal_frame_recorder.py",
+    "sha256": "73b4aeac594fc1e7eb0fb33a6ed49207153960202f580ef41d16d6ec54b6f57e",
+    "bytes": 9966
+  },
+  "control/model_manifest.json": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/model_manifest.json",
+    "sha256": "7745b03f73641a63972e6757a09ebbf8f08b4946ff3c7106fd01d51946c3ab91",
+    "bytes": 903
+  },
+  "provenance/live-control-README.txt": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/README.txt",
+    "sha256": "1d19157f1b26ba986b6d2129cdfd8441b979eae39853e1f3f705dbe878122054",
+    "bytes": 5684
+  },
+  "provenance/live-runtime-dependencies.json": {
+    "source": "/data/checkpoints/kele/usb/recap_robot_control/runtime_dependencies.json",
+    "sha256": "037994d8257d7ab920bb20a93b3ff2d392f844fd174fa88d25f3e84b620dcd8d",
+    "bytes": 615
+  },
+  "provenance/live-model-profile.py": {
+    "source": "/data/checkpoints/kele/usb/model_profile.py",
+    "sha256": "ae74623d2ba926b243f16083aa6c7f0d72bcb4a3a699556f4eee420c7544e496",
+    "bytes": 11355
+  },
+  "runtime/vr_runtime.py": {
+    "source": "/home/dt/wk/openpi_deeptouch_inference_20261019/rlt_online_rl_usb/xr1_crop_server/run_robot_async.py",
+    "sha256": "ced95c64a048e96fcfdd4cff7d58791884193eac0f6b34ed4cff880b058621df",
+    "bytes": 24715
+  },
+  "runtime/vr/deeptouch_vr_controls.py": {
+    "source": "/home/dt/wk/openpi_deeptouch_inference_20261019/rlt_online_rl_usb/train_deploy_alignment/deeptouch_vr_controls.py",
+    "sha256": "6b714eb2a9443dc0c07fbfe18c41bb73de1276630089cd517365dd14422e768a",
+    "bytes": 17442
+  },
+  "runtime/stable/run_robot.py": {
+    "source": "/data/checkpoints/kele/usb/tianji_adapter/experiments/pre_7dof_interpolation_1257_smooth_async/run_robot.py",
+    "sha256": "796a40c6178e49845c4930e5cd88a33b7fb68bb9233ababf07ab77ca1710d0df",
+    "bytes": 110111
+  },
+  "runtime/stable/serve_adapter.py": {
+    "source": "/data/checkpoints/kele/usb/tianji_adapter/experiments/pre_7dof_interpolation_1257_smooth_async/serve_adapter.py",
+    "sha256": "4d0fc64f2fe82e0d6be407c40087ca36a84422edf9d247e40e80656c62c15ec5",
+    "bytes": 17863
+  },
+  "runtime/stable/conversion.py": {
+    "source": "/data/checkpoints/kele/usb/tianji_adapter/experiments/pre_7dof_interpolation_1257_smooth_async/conversion.py",
+    "sha256": "05caab52a02475ae8246c74a2efcdcd149bcfa1485fea275c645ffa040bee60e",
+    "bytes": 7052
+  },
+  "runtime/stable/wire.py": {
+    "source": "/data/checkpoints/kele/usb/tianji_adapter/experiments/pre_7dof_interpolation_1257_smooth_async/wire.py",
+    "sha256": "5e61df6c1d95dc457fc5034b59e508107645a60c5f1996ec11578dcbe603b741",
+    "bytes": 5591
+  },
+  "runtime/stable/tianji_image_decoder.py": {
+    "source": "/data/checkpoints/kele/usb/tianji_adapter/experiments/pre_7dof_interpolation_1257_smooth_async/tianji_image_decoder.py",
+    "sha256": "1e4020b20da1918adcedfddc00e86bd358ac9690de0e7a5fa4eb7fc26ed29e23",
+    "bytes": 2105
+  },
+  "runtime/hal_compat.py": {
+    "source": "/data/checkpoints/kele/usb/tianji_adapter/experiments/pre_7dof_interpolation_1257_smooth_async_accel/hal_compat.py",
+    "sha256": "daf07158a79377bd073530a20ca363cb13c7c76e61d54d386fcc2b5eb3f51b7f",
+    "bytes": 5223
+  },
+  "runtime/hal_adapter.py": {
+    "source": "/data/checkpoints/kele/usb/hal_adapter.py",
+    "sha256": "2c8f33a2eed08b9dc5b80fa00a47008dcc328fd50cac1ed84ab3562bfda7b3f8",
+    "bytes": 3668
+  },
+  "server/mibot/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/rlt/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/rlt/__init__.py",
+    "sha256": "a9655ceacffb2237b11476330033a012ca41327949b3523b4fe0a4b27f410646",
+    "bytes": 75
+  },
+  "server/mibot/rlt/model.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/rlt/model.py",
+    "sha256": "d30aa491a265e9e30f03d5e4f956fb77cbb390b85efa7daf28deae99f6afbb4d",
+    "bytes": 7484
+  },
+  "server/mibot/rlt/modules.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/rlt/modules.py",
+    "sha256": "21da4338f93da69e3de9a8da72aff1b67f621a6e5a05b653c69c5ab136d28f1c",
+    "bytes": 5631
+  },
+  "server/mibot/data/recap.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/recap.py",
+    "sha256": "ff2981c5587412bc72ed041219ac3353963239e050b9ab9a5a1f18f0003f276b",
+    "bytes": 5447
+  },
+  "server/mibot/data/recap_events.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/recap_events.py",
+    "sha256": "58924efc9d0babb6e2637f7167c1caa85a0098de8a068ece0794716d6fe4b946",
+    "bytes": 4073
+  },
+  "server/mibot/data/recap_language.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/recap_language.py",
+    "sha256": "f0d90f32e6d96d3b45ae5796e82c124697fba90ee7ef4fad50b07a32c0657059",
+    "bytes": 3194
+  },
+  "server/mibot/data/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/__init__.py",
+    "sha256": "f78535b8ad3a2e68a40612813071a4f92cfc8ba58bd04fc9f5b9989d8c892d2b",
+    "bytes": 217
+  },
+  "server/mibot/bee/supervision.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/supervision.py",
+    "sha256": "75481c257f384bcb46363fcd02d4900b16cf821e46593fbfe223253dab67d319",
+    "bytes": 6281
+  },
+  "server/mibot/bee/robot_rl.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/robot_rl.py",
+    "sha256": "150b3b03e403d16b60598b611cf660e1464b2da16b47fd6229e31bf1fc5ea4db",
+    "bytes": 13290
+  },
+  "server/mibot/bee/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/__init__.py",
+    "sha256": "e05c0d3b1d8378d04a1342eef2116adf9ba16c8636335b52758d340d52729a9c",
+    "bytes": 69
+  },
+  "server/mibot/bee/model.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/model.py",
+    "sha256": "121f8f2c668ff131cc73ad7b3c1df629fabcbe2a013b1cfb123904d201ee5c5b",
+    "bytes": 5848
+  },
+  "server/mibot/bee/data.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/data.py",
+    "sha256": "d910bd605d5de29b498a33d31d848160662a6496cc8044d7e9287f2f2f89bd04",
+    "bytes": 10107
+  },
+  "server/mibot/bee/learning.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/learning.py",
+    "sha256": "a09d232f65430e6f97e27c28b929650d825129c5d7204b26d7719cd8257d5a33",
+    "bytes": 7326
+  },
+  "server/mibot/bee/offline.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/offline.py",
+    "sha256": "0d2a73cb344993828b1faef87ffce65241f44172c827e1fd3b5e186f05ccab92",
+    "bytes": 3758
+  },
+  "server/mibot/bee/ensemble.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/bee/ensemble.py",
+    "sha256": "69c79be5fb0f822595f8f07dd5812d442ec543921cf17ed52a1d40e1bd3080a9",
+    "bytes": 1760
+  },
+  "server/mibot/models/recap_value.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/recap_value.py",
+    "sha256": "7b777d586df66065783269fae737a8092f3ddbe7fadb245766298259f81b8b43",
+    "bytes": 2100
+  },
+  "server/mibot/models/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/__init__.py",
+    "sha256": "9a7827372f76711d551c01462c9642c12ecae2a377dd5f59e171d1e913b89dba",
+    "bytes": 228
+  },
+  "server/mibot/models/recap_rlinf.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/recap_rlinf.py",
+    "sha256": "b7efb71772c9ed44caab9bf4494acb675e774654a9ea129fa8204f72b12982f5",
+    "bytes": 1913
+  },
+  "server/mibot/utils/cfg_utils.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/utils/cfg_utils.py",
+    "sha256": "6695c52ef189ba8eb028ecd04ad405d0a273b9c7e025bd0c62357eecfadd47d2",
+    "bytes": 1906
+  },
+  "server/mibot/utils/model_utils.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/utils/model_utils.py",
+    "sha256": "abbbca1df157ad337ce96a92944fe39032e728bac9544a23de948ac5a3a738d3",
+    "bytes": 541
+  },
+  "server/mibot/utils/cosine_warmup.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/utils/cosine_warmup.py",
+    "sha256": "4be0287f8c6ea25397952799581d3600a375cbb04d4a66034b2ae868c3a37d75",
+    "bytes": 1055
+  },
+  "server/mibot/utils/io.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/utils/io.py",
+    "sha256": "a0e1a603343bc8bf01b60e29635d2050d767bb6e6837237e27ddc408b140852c",
+    "bytes": 9003
+  },
+  "server/mibot/utils/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/utils/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/server/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/server/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/server/deploy.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/server/deploy.py",
+    "sha256": "70ccb805166505cf10dabe5441c09ce325252b3f9e51d71241f081e4cc9b07e2",
+    "bytes": 3723
+  },
+  "server/mibot/data/collate/custom_collate.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/collate/custom_collate.py",
+    "sha256": "ea5305b136062ae5eb5d17a4234caac0b3a449532ba9e624968b34be7886d8bc",
+    "bytes": 5486
+  },
+  "server/mibot/data/collate/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/collate/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/data/datamodule/base_datamodule.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/datamodule/base_datamodule.py",
+    "sha256": "a70b84236b5b10f48e051869c44175b38ae6a5965a81c2671cc54dcf5dfc90b6",
+    "bytes": 3264
+  },
+  "server/mibot/data/datamodule/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/datamodule/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/data/datasets/ram_cache.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/datasets/ram_cache.py",
+    "sha256": "8e77ba8e9b49b0b39967b803c60e3f8efeb0e51c9121b9fad4a3d5bd4c394eec",
+    "bytes": 1070
+  },
+  "server/mibot/data/datasets/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/datasets/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/data/datasets/json_dataset.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/datasets/json_dataset.py",
+    "sha256": "4f0730efeda2692ee617aa14eb89beb0df1dfabdfde5d92e71743fc913cf1ff5",
+    "bytes": 15380
+  },
+  "server/mibot/data/datasets/recap_dataset.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/data/datasets/recap_dataset.py",
+    "sha256": "6847813743929f21d6ad49f553ba3cc1e832bdd81b4153777bd6f5ced77309a2",
+    "bytes": 5167
+  },
+  "server/mibot/models/runner/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/runner/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/models/runner/base_runner.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/runner/base_runner.py",
+    "sha256": "8c18c4d8131ce87c93de903acab9dfe748a90eb019bf89175e163d7641519e2f",
+    "bytes": 5142
+  },
+  "server/mibot/models/rlinf_recap/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/__init__.py",
+    "sha256": "85907ce5853804cda6bb707781f4134ab6564176118d354b2780928e277d0480",
+    "bytes": 75
+  },
+  "server/mibot/models/VLM/qwen3vl.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/VLM/qwen3vl.py",
+    "sha256": "e440a69c3c79b84e7c3133787786de4d30045e379ace72487fb438928ef41fb5",
+    "bytes": 69985
+  },
+  "server/mibot/models/VLM/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/VLM/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/models/VLA/XR1.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/VLA/XR1.py",
+    "sha256": "682567a87a1ed56dc792586516f42a1abe69606911867e0b0f49c83b1482981f",
+    "bytes": 26840
+  },
+  "server/mibot/models/VLA/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/VLA/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/mibot/models/rlinf_recap/value_common/image_text_processing.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/value_common/image_text_processing.py",
+    "sha256": "2deb7f9b7f91432d7fc10b7b026ac7cad2f367784f6f3663ff0ded2d6409e37e",
+    "bytes": 24797
+  },
+  "server/mibot/models/rlinf_recap/value_common/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/value_common/__init__.py",
+    "sha256": "f105cd420e7d873392a9e16b7b9aa9c0911d0a07c3a5956a9eb16a5e90a67c7c",
+    "bytes": 1082
+  },
+  "server/mibot/models/rlinf_recap/recap/modeling_critic.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/modeling_critic.py",
+    "sha256": "7a8d38c9d39c6c36795099c16f2439bca1e0de154dca67caf7178b1bf0b589e5",
+    "bytes": 41874
+  },
+  "server/mibot/models/rlinf_recap/recap/configuration.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/configuration.py",
+    "sha256": "2a2680988d7533ea94de1219026927c9bc66743c3fe4bfd872c1eb694c5d9b79",
+    "bytes": 8315
+  },
+  "server/mibot/models/rlinf_recap/recap/checkpoint_utils.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/checkpoint_utils.py",
+    "sha256": "1e089900a55dfe2d726fbea91f0138704aebc7d0528e57a6cea72256f1d7a97b",
+    "bytes": 6364
+  },
+  "server/mibot/models/rlinf_recap/recap/value_expert.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/value_expert.py",
+    "sha256": "77f19bbecee3376c289f6789e4b50b11dd2f26141519a22532f78c7429b632a4",
+    "bytes": 13285
+  },
+  "server/mibot/models/rlinf_recap/recap/data_collator.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/data_collator.py",
+    "sha256": "44a1b528560487a094156302b8b62a3baf658a86f7199400c5f86847d8b83e7c",
+    "bytes": 8688
+  },
+  "server/mibot/models/rlinf_recap/recap/processing.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/processing.py",
+    "sha256": "6760d45099bd7c79f7e23ec190c73ea3d8add7c64796b9f7785cc27e30ebf71f",
+    "bytes": 2239
+  },
+  "server/mibot/models/rlinf_recap/recap/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/models/rlinf_recap/recap/__init__.py",
+    "sha256": "d32243760da52ce652a981d7a614ffdd09799a39dbeb1e1971a28e5e72aec714",
+    "bytes": 5719
+  },
+  "server/mibot/server/runtime/server.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/server/runtime/server.py",
+    "sha256": "d017f218621841b421782b93146e9fe10b777ab2615f088d4e12e8ed1959fac4",
+    "bytes": 4662
+  },
+  "server/mibot/server/runtime/client.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/server/runtime/client.py",
+    "sha256": "a6362e1aa263af1390d842913012ac662b54fc35262844b0efb8f3396d99199e",
+    "bytes": 5190
+  },
+  "server/mibot/server/runtime/__init__.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/mibot/server/runtime/__init__.py",
+    "sha256": "06842f92f268d5552854377e69b9694968c576197addb8a43d6949c9cc176faf",
+    "bytes": 41
+  },
+  "server/requirements.txt": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/requirements.txt",
+    "sha256": "6ffdc68658a6bdff9777997c2f29bfef707de226ea445629215f39a9d19db565",
+    "bytes": 316
+  },
+  "server/requirements-flash-attn.txt": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/requirements-flash-attn.txt",
+    "sha256": "93b74d5bed74b8281fadbc75a14a194d4ffeceb17ad67635b369b1c09369d761",
+    "bytes": 18
+  },
+  "server/LICENSE": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/LICENSE",
+    "sha256": "e1f6807616313312e3520d45f83b64f8587e73eb087d91496ac32a371818d02a",
+    "bytes": 11347
+  },
+  "server/environment_versions.json": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/environment_versions.json",
+    "sha256": "19478fb0a753d4deec1e69258e68d466c051f408c61cf51c95072993d67ff9ab",
+    "bytes": 508
+  },
+  "server/manifest.json": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/manifest.json",
+    "sha256": "f1ee8049585b9c8e984f02d223472615a437fb1e78189c0ee39872d792dde746",
+    "bytes": 947
+  },
+  "config/model/config.py": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/model/config.py",
+    "sha256": "99bf314abe33407e6d69d682d566e4368b279dc6aa64a69d39ba5dbcbf13a4cc",
+    "bytes": 2590
+  },
+  "config/model/normalize.json": {
+    "source": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/model/normalize.json",
+    "sha256": "18fb50a6f12ae9d8739465a4fc0a4f7572cca74eb359467d347b4b6a4ccee006",
+    "bytes": 33291
+  },
+  "config/vr_reset.yaml": {
+    "source": "/home/dt/wk/opt/deeptouch-tuozhuai/deeptouch_teleop/config/vr_teleop.yaml",
+    "sha256": "d80747f41bf4b7749f1b04e2a8b12480f54c260f13d2971d14e7ce1dbc6e9db0",
+    "bytes": 12400
+  }
+}

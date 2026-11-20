@@ -195,3 +195,10 @@ docs/_build/
 
 # mkdocs
 /site
+
+# RECAP collection runtime assets
+!rollout/config/
+!rollout/config/**
+rollout/recordings/
+rollout/control/runs/
+rollout/.env

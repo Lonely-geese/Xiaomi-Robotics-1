@@ -1,3 +1,5 @@
+本分支的 RECAP 真机数采入口见 [rollout 使用说明](rollout/README.md)。
+
 <div align="center">
 
   # Xiaomi-Robotics-1

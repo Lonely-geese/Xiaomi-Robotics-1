@@ -1,0 +1,30 @@
+{
+  "profile": "usb_recap_epoch10_step15490",
+  "checkpoint_step": 15490,
+  "checkpoint_epoch": 9,
+  "completed_epochs": 10,
+  "checkpoint_sha256": "e9a1571b3468b3e156f1cb90e1f808020d4885be7401b28b3577753412970ac9",
+  "checkpoint_bytes": 10226684837,
+  "active_action_dims": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "action_horizon": 30,
+  "normalization_sha256": "18fb50a6f12ae9d8739465a4fc0a4f7572cca74eb359467d347b4b6a4ccee006",
+  "config_sha256": "99bf314abe33407e6d69d682d566e4368b279dc6aa64a69d39ba5dbcbf13a4cc",
+  "camera_layout": "head_full,left_full,left_center256_as_right",
+  "zero_state": "off",
+  "left_wrist_crop": null,
+  "inference_shift_frames": 0,
+  "recap_enabled": true,
+  "recap_conditioning": "language",
+  "recap_guidance_scale": 1.0,
+  "model_dir": "/data/checkpoints/kele/usb/usb_recap_epoch10_step15490/model",
+  "native_port": 10090,
+  "adapter_port": 10094
+}

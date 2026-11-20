@@ -1,0 +1,25 @@
+{
+  "name": "usb_recap_epoch10_step15490",
+  "epoch_number": 10,
+  "epoch_index": 9,
+  "global_step": 15490,
+  "source_checkpoint": "/mnt/cfs/7rnh3z/kele/data/00_traindata/usb/training/usb_recap_708_events_20261105/policy_ram_queue_20261106/outputs/project_xiaomi-robotics-1/usb_recap_708_10ep/epoch09-step15490.ckpt/checkpoint/mp_rank_00_model_states.pt",
+  "source_code": "/mnt/cfs/7rnh3z/kele/data/00_traindata/usb/training/usb_recap_708_events_20261105/policy_ram_queue_20261106/code",
+  "normalization_sha256": "18fb50a6f12ae9d8739465a4fc0a4f7572cca74eb359467d347b4b6a4ccee006",
+  "task": "Pick up the USB cable and insert it into the USB port.",
+  "recap_guidance_scale": 1.0,
+  "action_length": 30,
+  "action_shift_frames": 3,
+  "nominal_fps": 30,
+  "active_action_dims": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "checkpoint_tensors": 1135,
+  "export_format": "torch.save module-only, original tensor dtypes, no optimizer"
+}

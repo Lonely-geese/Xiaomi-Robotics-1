@@ -1,0 +1,215 @@
+# --- Runtime（帧驱动运行时）---
+# 时序参数均为初始实验值，必须在目标 PC/HAL/网络上实测后再定；
+# dispatch_offset_ms 可能最终为 0（若对照实验显示非零 offset 不能显著压低 jitter）。
+runtime:
+  nominal_input_hz: 120
+  dispatch_offset_ms: 4.0
+  dispatch_jitter_budget_ms: 0.5
+  max_input_age_ms: 20
+  input_timeout_ms: 100
+  overrun_limit: 3
+  # 机器人状态缓存刷新频率 (Hz)。HAL session 后台按此频率轮询 get_state 并发布缓存。
+  state_refresh_hz: 120
+  # 机器人状态快照的新鲜度窗口 (ms)。扣扳机时的 baseline 捕获要求快照在此窗口内,
+  state_max_age_ms: 100
+
+# --- 日志 ---
+# level: 根日志级别 DEBUG|INFO|WARNING|ERROR（CLI 传 -v 时强制 DEBUG，忽略此项）
+# console: 是否输出到 stderr
+# file: 日志文件路径；留空/删除则只输出到控制台。目录会自动创建。
+# max_bytes/backups: 单文件轮转阈值与保留份数（RotatingFileHandler）
+logging:
+  level: "INFO"
+  console: true
+  file: "logs/teleop.log"
+  max_bytes: 10485760   # 10 MiB
+  backups: 5
+
+hal:
+  # robot_hal 服务地址 (如果 HAL 和 teleop 不在同一台机器，改为远程 IP)
+  host: "127.0.0.1"
+  port: 7860
+
+
+vr:
+  # connection mode: "local" (USB + ADB) or "remote" (Wi-Fi direct TCP)
+  mode: "local"
+  host: "127.0.0.1"
+  port: 40051
+  adb_package: "com.deeptouch.xrteleop"
+  reconnect_delay_s: 1.0
+
+  # set false to disable filtering (raw pose data, useful for latency testing)
+  enable_filter: false
+
+  # OneEuro position filter
+  min_cutoff: 5.0
+  beta: 0.1
+  d_cutoff: 20.0
+
+  # Slerp EMA quaternion filter
+  quat_cutoff: 5.0
+
+  # coordinate offset applied at trigger press (VR -> robot end-effector frame)
+  # rotation around xyz axes in degrees
+  hand_fixed_rot: [90.0, 0.0, 90.0]
+  head_fixed_rot: [180.0, 0.0, 90.0]
+
+control:
+  # 控制范围：头显位姿驱动身体的哪一部分（本期用配置切换，后续可改按键切换）。
+  #   upper_body = 头显完整 6DOF 控上半身(腰腿)，摇杆控底盘（两者解耦，零串扰）
+  #   whole_body = 头显 yaw+水平平移给底盘，pitch/roll+z 给腰腿（纯头控全身，有耦合）
+  # 无底盘 capability 时 whole_body 自动退化为 upper_body 腰腿行为（头显完整 6DOF 给腰腿）。
+  control_scope: upper_body
+
+  # 逐机械单元配置。键名即 HAL 能力上报的组件 id，一个单元只出现一次，限速与输入
+  # 整形都写在它自己这一块里。
+  #
+  # 本段不需要枚举机械单元：机器人有哪些单元完全由 capability 决定，没在这里出现的
+  # 单元照常工作。物理速度上限由 HAL 按命令空间上报；这里若写同名字段只表示进一步
+  # 收紧，生效值 = min(teleop 配置, HAL 上报)。
+  #
+  # Cartesian/twist 使用 max_linear_speed_m_s + max_angular_speed_rad_s；joint 使用
+  # max_joint_speed_rad_s。不要用 Cartesian 角速度代替关节速度。
+  units:
+    # 双臂：在 HAL 上限内进一步收紧；开关当前关闭（延迟测试用）。
+    left_arm:  { max_linear_speed_m_s: 1.0, max_angular_speed_rad_s: 15.0, velocity_limit_enabled: false }
+    right_arm: { max_linear_speed_m_s: 1.0, max_angular_speed_rad_s: 15.0, velocity_limit_enabled: false }
+
+    # 腰腿：Cartesian 物理上限取 HAL；开关属于整个腰腿单元。
+    # upper_length 只参与 whole_body（头显同时控制底盘+腰腿）的倒立摆投影。
+    waist:
+      velocity_limit_enabled: false
+      whole_body:
+        upper_length: 0.45
+
+    # 底盘物理硬上限由 HAL 上报（当前后端 0.5 m/s、0.8 rad/s）。teleop 再按
+    # control_scope 设置场景输出上限；最终生效值始终为 min(场景上限, HAL 硬上限)。
+    mobile_base:
+      # upper_body：头显完整 6DOF 控腰腿，摇杆单独控底盘。
+      upper_body:
+        max_linear_speed_m_s: 0.25
+        max_angular_speed_rad_s: 0.50
+        trans_scale: 1.0       # <1 更钝；>1 提前打满，但不突破场景上限
+        rot_scale: 1.0
+        trans_deadzone: 0.2
+        rot_deadzone: 0.35
+
+      # whole_body：头显水平平移+yaw 驱动底盘，pitch/roll+z 驱动腰腿。
+      whole_body:
+        max_linear_speed_m_s: 0.25
+        max_angular_speed_rad_s: 0.50  # 低于 HAL 的 0.8，当前最终生效 0.5
+        trans_gain: 1.0
+        rot_gain: 2.0
+        dead_linear_m_s: 0.05
+        dead_angular_rad_s: 0.10
+        velocity_alpha: 0.25
+
+    # 脖子：关节速度取 HAL 的 max_joint_speed_rad_s。以下仅是输入整形和跟随保护。
+    head:
+      yaw_deadzone: 0.35       # 左右轴死区，与底盘转向 rot_deadzone 默认一致
+      pitch_deadzone: 0.2      # 俯仰轴死区，与底盘平移 trans_deadzone 默认一致
+      invert_yaw: -1.0         # Apex yaw 正方向与摇杆左右约定相反
+      invert_pitch: 1.0        # 置 -1.0 翻转上下方向
+      # 目标角领先实测角上限 度（关节角本身是度，故此项不用 SI）。调大有卡住风险
+      # （控制器会停止跟随），调小则限制实际转速。5.0 经实测可全程平滑跟随。
+      max_lead_deg: 5.0
+
+# --- 采集控制与反馈 ---
+recording:
+  enabled: true
+  command_enabled: true     # 采集控制是否开启
+  status_enabled: true      # Recorder 状态上行后启用
+  command:
+    transport: "zmq"
+    zmq:
+      port: 5555
+      bind_address: "*"     # "*" = 所有网卡；可指定 IP 如 "127.0.0.1"
+  status:
+    transport: "zmq"        # "zmq"（唯一受支持的状态上行通道）
+    zmq:
+      endpoint: "tcp://127.0.0.1:5556"   # Recorder 状态 PUB；跨机改为 Recorder IP
+      topic: "recorder"
+      heartbeat_timeout_ms: 2000
+  headset_feedback:
+    enabled: true            #头显发送提示音是否开启（cue 帧经位姿反向通路发送）
+
+# 左手摇杆下拉复位：让机械单元通过关节空间运动回到固定点位。关节角单位为 degree，
+# 与 HAL capability / Apex SDK 一致。
+# 复位从「配置了初始角的单元」正向出发：触发复位时先查机器人当前识别到哪些机械单元，
+# 只归位其中真实在线的单元；配了但 HAL 没有的单元（如无头/无腰的机型）自动跳过并打日志。
+# 留空 (null) 的单元不参与复位；全部为 null 时复位功能保持禁用。
+reset:
+  # left_init_joint_pos: [20.0, -50.0, -5.0, -70.0, 30.0, 0.0, 0.0]
+  # left_init_joint_pos: [-56.501204,-54.045696,75.30054,-113.194659,-13.958926,-17.382177,17.120105] #左臂初始1
+  # left_init_joint_pos: [-0.677942,17.08695,29.182352,-94.286948,39.891454,-48.026919,33.970139] #比赛
+  left_init_joint_pos: [-5.403048,-0.00917,12.966621,-85.821577,13.505479,-39.839042,10.316148] #左臂初始2 重要
+  # left_init_joint_pos: [15.089278, -51.141022, 19.883099,-69.928642, 8.641949, -22.392223, 22.988279] #左臂初始 recap 重要
+  # ============================================================================================================
+  # right_init_joint_pos: [-20.0, -50.0, 5.0, -70.0, -30.0, 0.0, 0.0]
+  # right_init_joint_pos: [12.909041,-8.845553,-24.738821,-83.12262,4.262984,-39.328905,16.527908] #右臂初始1
+  # right_init_joint_pos: [2.147707,4.386892,-23.851174,-96.178745,-19.078191,-50.907026,-11.794778] #比赛
+  right_init_joint_pos: [12.98727,-21.620467,-7.420894,-105.097453,0.010904,-16.895565,13.743059] #右臂初始2 重要
+
+  waist_init_joint_pos: [30.0, -55.0, 24.0, 0.0]
+  head_init_joint_pos: [0.0, 10.0]
+  velocity: 0.2
+
+# --- 输入绑定表（唯一的按键配置来源）---
+# 每行 = 一条绑定（三段式 source + trigger + emit）。这是所有按键/扳机映射的单一来源
+# （录制、复位、机械臂 deadman、夹爪、手势切换都在这里）。
+#
+#   source: 设备原始通道名，格式 {left|right}_{通道}。每只手柄可用通道：
+#     按键 (0/1, 数字量):
+#       button_0 = X(左)/A(右)      button_1 = Y(左)/B(右)
+#       button_2 = Menu             button_3 = 摇杆按下 (thumbstick click)
+#     扳机 (0.0~1.0, 模拟量):
+#       index_trigger = 前向食指扳机   hand_trigger = 侧边握力扳机
+#     摇杆 (-1.0~1.0 有符号双向轴, 模拟量):
+#       thumb_x = 摇杆水平轴          thumb_y = 摇杆垂直轴 (上为正)
+#       两种用法二选一 (勿同时): ①原始轴 thumb_x/y + passthrough 透传有符号值 (底盘速度);
+#       ②方向虚拟源当按键: thumb_{up|down|left|right|up_left|up_right|down_left|down_right}
+#       (x/y 按 45° 扇区分解成单向 0~1, 可配任意 trigger; 详见 docs/design/input_binding.md §9.3)
+#     例: left_button_0 / right_index_trigger / left_hand_trigger / right_thumb_x
+#   trigger: short_press | long_press | release | hold | hysteresis
+#            | threshold_edge | passthrough
+#   emit: event（一次性离散事件）| activation（每帧 bool）| value（每帧原值 0~1）
+#   # emit == event:
+#   target: robot | recorder
+#   action: episode_start | episode_stop | reset | gesture_cycle
+#   params: {}                    # 可选，如 { disposition: keep } / { side: "left" }
+#   # emit == activation | value:
+#   channel: 语义通道名，如 left_arm / left_effector    role: deadman / grip（可选）
+#   activate / release_th: 模拟量双阈值滞环（可选，默认 0.5 / 0.3）
+#
+# 非法组合（如 emit=event 配 hold）在加载时立即报错（fail-loud）。
+bindings:
+  # 拖拽采集录制启停（左手 Y 键开始，左手 X 短按成功、长按失败）
+  - { source: left_button_1, trigger: short_press, emit: event, target: recorder, action: episode_start }
+  - { source: left_button_0, trigger: short_press, emit: event, target: recorder, action: episode_stop, params: { disposition: keep, operator_verdict: success } }
+  - { source: left_button_0, trigger: long_press,  emit: event, target: recorder, action: episode_stop, params: { disposition: keep, operator_verdict: failure } }
+  # 复位（恢复配置的在线机械单元初始位置）：左手摇杆下拉触发
+  - { source: left_thumb_down, trigger: short_press, emit: event, target: robot,    action: reset }
+  # 手势切换：Y 键切左手，B 键切右手
+  # - { source: left_button_1,  trigger: short_press, emit: event, target: robot,    action: gesture_cycle, params: { side: "left" } }
+  # - { source: right_button_1, trigger: short_press, emit: event, target: robot,    action: gesture_cycle, params: { side: "right" } }
+  # 机械臂 deadman（侧边握力扳机滞环激活）
+  - { source: left_hand_trigger,  trigger: hysteresis,  emit: activation, channel: left_arm,  role: deadman }
+  - { source: right_hand_trigger, trigger: hysteresis,  emit: activation, channel: right_arm, role: deadman }
+  # 夹爪开合（食指扳机原值直通）
+  - { source: left_index_trigger,   trigger: passthrough, emit: value, channel: left_effector,  role: grip }
+  - { source: right_index_trigger,  trigger: passthrough, emit: value, channel: right_effector, role: grip }
+  # 吸盘 toggle（左手摇杆按下：按一次吸，再按一次放）
+  - { source: left_button_3, trigger: short_press, emit: event, target: robot, action: vacuum_toggle }
+  # 腰腿 deadman：左手 Y 键按住才控制腰腿（临时键位；后续整理新按键映射时再调）。
+  # 注意：left_button_1 目前也用于手势切换(short_press)，两者 trigger 不同可共存，
+  # 但语义会打架，属临时方案。
+  - { source: left_button_1, trigger: hold, emit: activation, channel: waist, role: deadman }
+  # 底盘摇杆控制（仅 control_scope=upper_body 生效；whole_body 时忽略这几路，由头显驱动）。
+  # 差速底盘无横移，单右摇杆即可：竖直 → 前后，水平 → 转向；passthrough 透传原值 (-1~1)。
+  # 横移(base_trans_y)已不再绑定，VrBaseMapper 读不到该通道时 vy 恒为 0。
+  - { source: right_thumb_y, trigger: passthrough, emit: value, channel: base_trans_x, role: base }
+  - { source: right_thumb_x, trigger: passthrough, emit: value, channel: base_rot_z,   role: base }
+  # 脖子（2-DOF）：左摇杆水平 → yaw 左右转头，竖直 → pitch 俯仰点头。速度模式。
+  - { source: left_thumb_x,  trigger: passthrough, emit: value, channel: head_yaw,   role: head }
+  - { source: left_thumb_y,  trigger: passthrough, emit: value, channel: head_pitch, role: head }

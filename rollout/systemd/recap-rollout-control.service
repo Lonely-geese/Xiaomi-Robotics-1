@@ -1,0 +1,20 @@
+[Unit]
+Description=RECAP VR control and LeRobot rollout collection
+Requires=recap-rollout-adapter.service
+After=recap-rollout-adapter.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/recap-rollout.env
+ExecStartPre=/bin/bash ${RECAP_ROLLOUT_ROOT}/scripts/wait.sh 10094
+ExecStart=/bin/bash ${RECAP_ROLLOUT_ROOT}/scripts/start_control.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=360
+TimeoutStopSec=30
+SendSIGKILL=no
+
+[Install]
+WantedBy=default.target

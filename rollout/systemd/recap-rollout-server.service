@@ -1,0 +1,15 @@
+[Unit]
+Description=RECAP native policy inference
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/recap-rollout.env
+ExecStart=/bin/bash ${RECAP_ROLLOUT_ROOT}/scripts/start_server.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

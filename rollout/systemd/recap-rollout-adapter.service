@@ -1,0 +1,19 @@
+[Unit]
+Description=RECAP Cartesian protocol adapter
+Requires=recap-rollout-server.service
+After=recap-rollout-server.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/recap-rollout.env
+ExecStartPre=/bin/bash ${RECAP_ROLLOUT_ROOT}/scripts/wait.sh 10090
+ExecStart=/bin/bash ${RECAP_ROLLOUT_ROOT}/scripts/start_adapter.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=360
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

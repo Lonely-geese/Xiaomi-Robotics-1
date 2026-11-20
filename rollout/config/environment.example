@@ -1,0 +1,7 @@
+RECAP_ROLLOUT_ROOT=/absolute/path/to/Xiaomi-Robotics-1/rollout
+RECAP_PACKAGE=/data/checkpoints/kele/usb/usb_recap_epoch10_step15490
+RECAP_SERVER_PYTHON=/home/dt/xr1_migration_20261006/data/checkpoints/xiaomi_xr1_inference_step44628_20261006/.venv/bin/python
+RECAP_CONTROL_PYTHON=/home/dt/miniconda3/envs/pi05-lerobot/bin/python
+RECAP_RECORD_OUT=/data/checkpoints/kele/usb/recap_robot_control/recordings/usb_recap_epoch10_step15490
+XR1_TUOZHUAI_ROOT=/home/dt/wk/opt/deeptouch-tuozhuai
+XR1_RESET_CONFIG=/absolute/path/to/Xiaomi-Robotics-1/rollout/config/vr_reset.yaml

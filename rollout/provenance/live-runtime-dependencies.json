@@ -1,0 +1,6 @@
+{
+  "/home/dt/wk/openpi_deeptouch_inference_20261019/rlt_online_rl_usb/xr1_crop_server/run_robot_async.py": "ced95c64a048e96fcfdd4cff7d58791884193eac0f6b34ed4cff880b058621df",
+  "/home/dt/wk/openpi_deeptouch_inference_20261019/rlt_online_rl_usb/train_deploy_alignment/deeptouch_vr_controls.py": "6b714eb2a9443dc0c07fbfe18c41bb73de1276630089cd517365dd14422e768a",
+  "/data/checkpoints/kele/usb/hal_adapter.py": "2c8f33a2eed08b9dc5b80fa00a47008dcc328fd50cac1ed84ab3562bfda7b3f8",
+  "/data/checkpoints/kele/usb/recap_robot_control/gripper_snap.py": "9f38a3335850e2eeb3a4e4dc658f4d121d649901f8cfc6fc12454808378d72b1"
+}
